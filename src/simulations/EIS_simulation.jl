@@ -352,9 +352,9 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
         typical_plot_exp(loc_SIM, EIS_exp_NEW, "")       
         #
         if save_to_folder!=Nothing
-          if contains(pwd()[end-3 : end], "src")
+          if occursin("src", pwd()[end-3 : end])
             save_dir = "../data/experimental/"
-          elseif contains(pwd()[end-3 : end], "ysz")
+          elseif occursin("ysz", pwd()[end-3 : end])
             save_dir = "./data/experimental/"
           else
             println("ERROR: please, go to directory \"ysz\" or \"ysz/src\"")
