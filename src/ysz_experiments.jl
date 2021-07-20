@@ -37,6 +37,8 @@ include("../src/models/ysz_model_GAS_LoMA.jl")
 include("../src/models/ysz_model_GAS_LoMA_shared.jl")
 include("../src/models/ysz_model_GAS_LoMA_Temperature.jl")
 include("../src/models/ysz_model_GAS_LoMA_generic.jl")
+include("../src/models/YSZ_LSM_model_ARO.jl")
+
 
 include("../prototypes/timedomain_impedance.jl")
 
@@ -70,15 +72,89 @@ function run_new(;physical_model_name,
                 conductivity_fitting=false
                 )
 
+                
+                
+                
+                
+                
+                
+                
+                
+    ### LSM_YSZ domain
+    model_symbol = eval(Symbol(physical_model_name))
+    
+    if length(physical_model_name) > 13 && physical_model_name[1:13]=="YSZ_LSM_model"             
+      push!(prms_names_in, "T")
+      push!(prms_values_in, T)
+      
+      push!(prms_names_in, "pO2")
+      push!(prms_values_in, T)
+      
+      #push!(prms_names_in, "h_max")
+      #push!(prms_values_in, (10.0^dx_exp)*1.0e-2                                            )
+      
+      params_dict=Dict{Symbol, Any}(Pair.(Symbol.(prms_names_in), prms_values_in))
+      
+      sys = model_symbol.sys(params_dict=params_dict)
+      #sys = model_symbol.sys()
+      
+      eq_solution = model_symbol.equilibrium_solution(sys)
+      
+#      model_symbol.phi_stationary_sweep(sys, eq_solution)
+      
+
+      
+      if EIS_IS
+        if bias == 0
+          biased_steadystate_solution = eq_solution
+        else
+          biased_steadystate_solution = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=[bias])[end][:solution]
+        end
+        
+        
+        return model_symbol.impedance_sweep(sys, biased_steadystate_solution, f_range=model_symbol.geometric(Float64.(f_range)...),
+          currentF=model_symbol.YSZ_current_neg
+          )        
+      end
+      if voltammetry && fast_CV_mode
+        bias_range_sorted = [upp_bound_eta * (step/sample) for step in 1:sample]              
+        @show bias_range_sorted
+        
+        solution_df = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=bias_range_sorted)
+        #solution_df = model_symbol.phi_stationary_sweep(sys, eq_solution)        
+      
+      @show solution_df[!, :solution]
+        
+        I_range_sorted = [model_symbol.LSM_current(sys, sol)[1] for sol in solution_df[!, :solution]]        
+        @show I_range_sorted
+        return "aa"
+      end
+    end
+    
+    ##################
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     if physical_model_name=="ysz_model_GAS_LoMA_generic"      
       extended_LSM_domain_mode=true
     else
       extended_LSM_domain_mode = false
-    end
+    end        
     
-    #model_symbol = eval(Symbol(model_label))
-    model_symbol = eval(Symbol(physical_model_name))
     
     bulk_species = model_symbol.bulk_species
     surface_species = model_symbol.surface_species
@@ -196,7 +272,7 @@ function run_new(;physical_model_name,
       end                    
     end
     
-    
+    ############################################
     
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
 
