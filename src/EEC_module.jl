@@ -177,8 +177,39 @@ function HF_LF_correction!(EEC)
 end
 
 
+function get_RC_prms_from_Z(omega, Z)
+  a = real(Z)
+  b = imag(Z)
+  return (
+    (a*a + b*b)/a,
+    - b/(omega*(a*a + b*b))
+    )
+end
 
+function get_RC_from_EIS(df)
+  output = []
+  for i in collect(1 : 1 : size(df, 1))
+       push!(output, ysz_fitting.get_RC_prms_from_Z(df.f[i]*2*pi, df.Z[i]))
+  end
+  return output
+end
 
+function plot_RC(RC_list)
+  R_list = []
+  C_list = []
+  x_range = []
+  for (i, RC_item) in enumerate(RC_list)
+      push!(R_list, RC_item[1])
+      push!(C_list, RC_item[2])
+      push!(x_range, log(i))
+  end
+  figure(325)
+  plot(x_range, R_list)
+  figure(326)
+  plot(x_range, C_list)
+  
+  return
+end
 
 #
 #     mask can be generated via string input, e.g. every "L" should be constant >>
@@ -293,7 +324,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     
     if !(check_x_in(x, lowM, uppM))
       
-#       println("    OUT OF THE BOUNDS   \n")
+       #println("    OUT OF THE BOUNDS   \n")
       
       return 1000
     end
@@ -448,6 +479,10 @@ function get_count_of_RCPEs(EEC::EEC_data_struct)
 end
 
 
+function get_init_values_RC_element(EIS_exp, EEC::EEC_data_struct)
+  
+end
+
 function get_init_values(EIS_exp, EEC::EEC_data_struct)
   
   function get_capacitance_spread_item(i, total_number)
@@ -472,7 +507,7 @@ function get_init_values(EIS_exp, EEC::EEC_data_struct)
     end
   end
   highest_freq = EIS_exp.f[minimum_idx]
-
+  
   # R_ohm
   output[1] = left
   
@@ -485,52 +520,66 @@ function get_init_values(EIS_exp, EEC::EEC_data_struct)
     output[2] = 0.0
   end
   
-  RCPE_count = get_count_of_RCPEs(EEC)
-  
-  for i in 1:RCPE_count
-    # RCPE-R
-    output[3 + (i-1)*3] = width*(1.0/RCPE_count)
+  if EEC.structure == "R-L-RC"
+    EIS_aux = deepcopy(EIS_exp)    
     
-    # RCPE-C
-    central_capacitance = 1/(2*pi*highest_freq*output[3])
-    if RCPE_count == 1
-      spread_item = 0
-    else
-      spread_item = capacitance_spread_factor*(
-            get_capacitance_spread_item(i, RCPE_count) /
-            get_capacitance_spread_item(RCPE_count, RCPE_count)
-          )
+    Z_aux = real.(EIS_aux.Z) .- left
+    EIS_aux.Z = Z_aux  .+ im .* imag.(EIS_aux.Z)      
+    RC_prms = get_RC_from_EIS(EIS_aux)     
+    
+    fitted_frequency_idx = 1
+    output[3] = RC_prms[fitted_frequency_idx][1]
+    output[4] = RC_prms[fitted_frequency_idx][2]
+    #@show RC_prms[fitted_frequency_idx]
+    return output
+  
+  else ## THIS SUPPOSES there are RCPE components    
+    RCPE_count = get_count_of_RCPEs(EEC)
+    
+    for i in 1:RCPE_count
+      # RCPE-R
+      output[3 + (i-1)*3] = width*(1.0/RCPE_count)
+      
+      # RCPE-C
+      central_capacitance = 1/(2*pi*highest_freq*output[3])
+      if RCPE_count == 1
+        spread_item = 0
+      else
+        spread_item = capacitance_spread_factor*(
+              get_capacitance_spread_item(i, RCPE_count) /
+              get_capacitance_spread_item(RCPE_count, RCPE_count)
+            )
+      end
+      output[4 + (i-1)*3] = central_capacitance*(1 + spread_item)
+      
+      # RCPE-alpha
+      output[5 + (i-1)*3] = 0.9        
+
+
+  # #   # R3, R4
+  # #   output[3] = width*smaller_circle_resistance_ratio
+  # #   output[6] = width*(1 - smaller_circle_resistance_ratio)
+  # #   
+  # #   # alphas
+  # #   output[5] = 1.0
+  # #   output[8] = 0.8
+  # #   
+  # #   # C3, C4
+  # # 
+  # #   
+  # #   output[4] = central_capacitance*(capacitance_spread_factor)
+  # #   output[7] = central_capacitance*(capacitance_spread_factor)
+  # #   
+  #   @show central_capacitance
+  #   @show output[4]
+  #   @show output[7]
     end
-    output[4 + (i-1)*3] = central_capacitance*(1 + spread_item)
     
-    # RCPE-alpha
-    output[5 + (i-1)*3] = 0.9        
-
-
-# #   # R3, R4
-# #   output[3] = width*smaller_circle_resistance_ratio
-# #   output[6] = width*(1 - smaller_circle_resistance_ratio)
-# #   
-# #   # alphas
-# #   output[5] = 1.0
-# #   output[8] = 0.8
-# #   
-# #   # C3, C4
-# # 
-# #   
-# #   output[4] = central_capacitance*(capacitance_spread_factor)
-# #   output[7] = central_capacitance*(capacitance_spread_factor)
-# #   
-#   @show central_capacitance
-#   @show output[4]
-#   @show output[7]
+    # C
+    if length(output)==2 + 3*RCPE_count + 1
+      output[2 + 3*RCPE_count + 1] = max(0, -1/(2*pi*EIS_exp.f[1]*imag(EIS_exp.Z[1])))
+    end
   end
-  
-  # C
-  if length(output)==2 + 3*RCPE_count + 1
-    output[2 + 3*RCPE_count + 1] = max(0, -1/(2*pi*EIS_exp.f[1]*imag(EIS_exp.Z[1])))
-  end
-  
   
   
   #@show imag(EIS_exp.Z[end]) 
@@ -548,47 +597,54 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
   lower_limits = Array{Float32}(undef, prms_length)
   upper_limits = Array{Float32}(undef, prms_length)
   
-  # R | L | RCPE | RCPE structure REQUIERED!
-  
-  RCPE_count = get_count_of_RCPEs(EEC)
-  
-  # R_ohm
-  if RCPE_count > 0
-    lower_limits[1] = left/2
-    upper_limits[1] = right
+  # R-L-RC structure
+  if EEC.structure == "R-L-RC"
+    lower_limits .= Inf
+    upper_limits .= Inf
   else
-    lower_limits[1] = -Inf
-    upper_limits[1] = Inf
-  end
-  
-  # L2    
-  if imag(EIS_exp.Z[end]) < 0.0
-    lower_limits[2] = -0.1
-    upper_limits[2] = 0.1
-  else
-    lower_limits[2] = max(-0.1, (imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units))/10 )
-    upper_limits[2] = max(0.1, (imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units))*10 )  
-  end
-  
-  
-  for i in 1:RCPE_count
-    #R
-    lower_limits[3 + (i-1)*3] = -Inf
-    upper_limits[3 + (i-1)*3] = Inf # width*2   
     
-    #C
-    lower_limits[4 + (i-1)*3] = 0.0
-    upper_limits[4 + (i-1)*3] = 10    
+    # R | L | RCPE | RCPE structure REQUIERED!
     
-    #alpha
-    lower_limits[5 + (i-1)*3] = -Inf
-    upper_limits[5 + (i-1)*3] = Inf    
-  end
-  
-  # C[end]
-  if prms_length == 2 + 3*RCPE_count + 1
-    lower_limits[end] = 0.0
-    upper_limits[end] = Inf
+    RCPE_count = get_count_of_RCPEs(EEC)
+    
+    # R_ohm
+    if RCPE_count > 0
+      lower_limits[1] = left/2
+      upper_limits[1] = right
+    else
+      lower_limits[1] = -Inf
+      upper_limits[1] = Inf
+    end
+    
+    # L2    
+    if imag(EIS_exp.Z[end]) < 0.0
+      lower_limits[2] = -0.1
+      upper_limits[2] = 0.1
+    else
+      lower_limits[2] = max(-0.1, (imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units))/10 )
+      upper_limits[2] = max(0.1, (imag(EIS_exp.Z[end])/(2*pi*EIS_exp.f[end])*(1/L_units))*10 )  
+    end
+    
+    
+    for i in 1:RCPE_count
+      #R
+      lower_limits[3 + (i-1)*3] = -Inf
+      upper_limits[3 + (i-1)*3] = Inf # width*2   
+      
+      #C
+      lower_limits[4 + (i-1)*3] = 0.0
+      upper_limits[4 + (i-1)*3] = 10    
+      
+      #alpha
+      lower_limits[5 + (i-1)*3] = -Inf
+      upper_limits[5 + (i-1)*3] = Inf    
+    end
+    
+    # C[end]
+    if prms_length == 2 + 3*RCPE_count + 1
+      lower_limits[end] = 0.0
+      upper_limits[end] = Inf
+    end
   end
   
   EEC.lower_limits_for_fitting = lower_limits
@@ -1171,7 +1227,8 @@ function plot_EEC_data_general(EEC_data_holder;
                                 fig_num=102, 
                                 plot_legend=true, plot_all_prms=true,
                                 reversed_x = false,
-                                x_mapping = Nothing
+                                x_mapping = Nothing,
+                                marker="-x"
                                 )
   
   function make_range_list(prm_name, interval)
@@ -1286,7 +1343,7 @@ function plot_EEC_data_general(EEC_data_holder;
       reversed_x ? reverse(x_to_plot[valid_idxs]) : x_to_plot[valid_idxs] , 
       y_to_plot[valid_idxs] ,
       label= "$(add_legend_contribution(1, TC_idx))$(add_legend_contribution(2, pO2_idx))$(add_legend_contribution(3, bias_idx))$(add_legend_contribution(4, data_set_idx))"*"$(reversed_x ? "rev" : "")",
-      "-x"
+      marker
     )
   end
   
@@ -1464,4 +1521,33 @@ end
 
 function test_R3_stealing()
   println("TODO!!!")
+end
+
+function get_bias_from_chrono(bias_idx, bias_step, bias_return_value)
+    bias_digit_precision = 3
+    bias_epsilon = 10e-5
+    
+    bias_step = 0.05
+    dir = 1
+    bias_value = 0.0
+        
+    return_counter = 0
+    for i in 1:(bias_idx - 1)    
+      bias_value = round(bias_value + dir*bias_step, digits=bias_digit_precision)
+      if bias_value > bias_return_value && dir > 0
+        return_counter += 1
+        bias_value = round(bias_value + -2*bias_step, digits=bias_digit_precision)
+        dir = -1
+      end
+      if bias_value < -bias_return_value && dir < 0
+        return_counter += 1
+        bias_value = round(bias_value + 2*bias_step, digits=bias_digit_precision)
+        dir = 1
+      end
+      if return_counter > 1 && bias_value > 0        
+        bias_value = Inf
+        break
+      end
+    end
+    bias_value = round(bias_value, digits=bias_digit_precision)
 end

@@ -1,3 +1,4 @@
+
 # Temperature testing
 
 new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, [ 60], 0.0, physical_model_name="ysz_model_GAS_LoMA_Temperature", data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
@@ -934,7 +935,19 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=[7
                
                
                
-               
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
                
                
            
@@ -1866,6 +1879,80 @@ EXP_vs_LOMA = ysz_fitting.simple_run(simulations=["EIS", "CV(f)"], TC=800, pO2=[
                       
                       
                       
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+# comparison of zeta VS LSM
+
+prms_names=["separate_vacancy",         "A.r",     "A.DG",     "A.S",
+                                        "R.r",     "R.DG",     "R.S",
+                                        "O.r",     "O.DG",     "O.S",
+                                        "nu",    "CO",     "COmm"],
+                                      
+prms_values=(1, 21.517,  -0.094, -0.33, 
+                21.732,  0.202, 0.33, 
+                 21.215,  -0.156, 0.0, 
+                 0.75,       4.116,  0.38)   
                       
                       
                       

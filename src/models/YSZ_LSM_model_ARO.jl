@@ -27,7 +27,7 @@ const surface_domains = (Γ_LSM,Γ_YSZ,Γ) = (1, 2, 3)
 
 const bulk_species = (ie, iy, iphi) = (1, 2, 3)
 const surface_species = (ies, iys, ios) = (4, 5, 6)
-const species = (ie, iy, iphi, ies, iys)
+const species = (ie, iy, iphi, ies, iys, ios)
 const species_names = ("ie", "iy", "iphi", "ies", "iys", "ios")
 
 # basic physics constants
@@ -64,89 +64,104 @@ mutable struct reaction_struct
 
     
 @kwdef mutable struct materialParameters <: VoronoiFVM.AbstractData
-	
+
+    # geometry parameters
     # grid
     L_LSM::Float64=1.0e-3
     L_YSZ::Float64=1.0e-3
-    h_min::Float64=1.01e-11
+    h_min::Float64=1.01e-12
     h_max::Float64=1.9e-1
+    Γ_node_idx::Int32=-1
+    #
+    S_ellyt::Float64=1.0 # [m^2]
+    
     # Material parameters
+    # inductance
+    L::Float64 = 0.0 #2.45e-6 # [H]
+    
     ## Bulk
     epsY::Float64=(1.0+27.0)
     epsE::Float64=(1.0+27.0)
   
-    Di::Float64=1.0e-11
+    DD::Float64=1.0e-11
     De::Float64=1.0e-6            
     T::Float64 = 1073.0
+    
+    ### 
+    CO::Float64=1.0
+    COmm::Float64=1.0
+    
+    
+    
+    #####################
     
     ### YSZ
     x_frac::Float64 = 0.13
     nu::Float64 = 0.285
-    nC_YSZ::Float64 = 2.98023223876953e28 # 1/m^3
-    zC_YSZ::Float64  = 4*(1-x_frac)/(1+x_frac) + 3*2*x_frac/(1+x_frac) - 2*m_par*nu
-    y_YSZ::Float64  = -zC_YSZ/(za*m_par*(1-nu))
-    numax = (2+x_frac)/m_par/(1+x_frac)
-    ### LSM
-    e_LSM::Float64 = -zC_LSM/ze
-    nC_LSM::Float64= 2.98023223876953e28 # = nC_YSZ
-    ## Interface
-    DGE::Float64= 0.0e-0#[eV]
-    DGR::Float64= 0.0e-2#[eV]
-    DGA::Float64=-0.0e-2#[eV]
-    kR::Float64 =1.0e21
-    kE::Float64 =1.0e22#*kR
-    kA::Float64 =1.0e21#*kR
-
-    COs::Float64=1.0e18
+    
+   
+    ## Interface  
+    #COs::Float64=1.0e18
     # oxide adsorption from YSZ
     #                                          r,r_A,r_B,r_C    DG,DG_A,DG_B, DG_C, beta,S,  exp
     O::reaction_struct = reaction_struct( 1.0e21,  1,  1,  1,  0.0,   1,   1,    1,  0.5,1,  false)
-    E::reaction_struct = reaction_struct( 1.0e22,  1,  1,  1,  0.0,   1,   1,    1,  0.5,1,  false)
+    E::reaction_struct = reaction_struct( 1.0e25,  1,  1,  1,  0.0,   1,   1,    1,  0.5,1,  false)
     R::reaction_struct = reaction_struct( 1.0e21,  1,  1,  1,  0.0,   1,   1,    1,  0.5,1,  false)
     A::reaction_struct = reaction_struct( 1.0e21,  1,  1,  1,  0.0,   1,   1,    1,  0.5,1,  false)
 
-    #A.DG= -Inf
-    #A.DG_A = 0.0
-    
-    #A.beta = 0.5
-    #A.S= 10^0.0
-    #A.exp= 1
-    
-    # electron-transfer reaction
-    #R.r= -Inf
-    #R.r_A =0.0
-    #R.DG= -Inf
-    #R.DG_A = 0.0
-    
-    #R.beta= 0.5
-    #R.S= 10^0.0
-    #R.exp = 1
-    
-    # oxygen adsorption from gas
-    #O.r= -Inf
-    #O.r_A =0.0
-    #O.DG= -Inf
-    #O.DG_A = 0.0
-    
-    #O.beta = 0.5
-    #O.S= 10^0.0
-    #O.exp= 1
     # boundary conditions
     bias::Float64=0.0
     # additional model parameters
     # - [ ] y, (1-y), y*(1-y)
     # - [ ] rate types
-    L::Float64=0.0
     separate_vacancy=true
     pO2::Float64=1.0
     ie_bulk_eqn_scaling::Float64 = 1.0e-2
-end
+      
+    ### implied quantities ####
+    nC_YSZ::Float64 = 2.98023223876953e28 # 1/m^3
+    zC_YSZ::Float64  = 4*(1-x_frac)/(1+x_frac) + 3*2*x_frac/(1+x_frac) - 2*m_par*nu
+    y_YSZ::Float64  = -zC_YSZ/(za*m_par*(1-nu))    
+    numax = (2+x_frac)/m_par/(1+x_frac)
+    
+    ### LSM
+    e_LSM::Float64 = -zC_LSM/ze 
+    nC_LSM::Float64= 2.98023223876953e28 # = nC_YSZ
+    
+    # constants
+    e0::Float64 = 1.602176634e-19
+end 
 
 function update_parameters!(this)
+      @show this.y_YSZ
+      @show this.zC_YSZ
+      @show this.nu
+    
     this.zC_YSZ = 4*(1-this.x_frac)/(1+this.x_frac) + 3*2*this.x_frac/(1+this.x_frac) - 2*m_par*this.nu
     this.y_YSZ = -this.zC_YSZ/(za*m_par*(1-this.nu))
     this.e_LSM = -zC_LSM/ze
     this.numax = (2+this.x_frac)/m_par/(1+this.x_frac)
+    
+    grid = makegrid(this)
+    X = grid.components[XCoordinates]
+    @show length(X)
+    this.Γ_node_idx = Int((length(X) + 1)/2)
+end
+
+function conv_prms(prms_names, prms_values)
+  prms_names_out = deepcopy(prms_names)
+  prms_values_out = deepcopy(prms_values)
+  
+  for (idx_name, name) in enumerate(prms_names)
+    if name == "DD"
+      prms_names_out[idx_name] = "DD"
+    end
+  end
+  
+  push!(prms_names_out, "De"); push!(prms_values_out, "1.0e-11"); 
+  push!(prms_names_out, "DD"); push!(prms_values_out, "1.0e-6");
+  
+  return prms_names_out, prms_values_out
 end
 
 # function set_parameters!(parameters, d::Dict)
@@ -198,7 +213,7 @@ function set_parameters!(this, d::Dict)
     
     for name in fieldnames(typeof(this))
       if name==Symbol(name_in)          
-        if name_in in ["A", "R", "O"]
+        if name_in in ["A", "R", "O", "E"]
           actual_struct = getfield(this, name)
           for attribute_name in fieldnames(typeof(actual_struct))
             if attribute_name==Symbol(attribute_name_in)              
@@ -231,7 +246,7 @@ function equilibrium_voltage(sys)
     data = sys.physics.data
     E = kB*data.T/e0/za*(
         -2*log(data.e_LSM) + log(data.y_YSZ) - log(1-data.y_YSZ)
-        -( data.DGA + data.DGR + 2*data.DGE)*e0/kB/data.T
+        -( data.A.DG + data.R.DG + 2*data.E.DG)*e0/kB/data.T
     )
 end
 
@@ -240,6 +255,7 @@ function set_bcs!(sys)
     boundary_dirichlet!(sys,iphi,Γ_YSZ, 0.0)
     boundary_dirichlet!(sys,iphi,Γ_LSM, data.bias + equilibrium_voltage(sys))
     # densities
+    @show data.y_YSZ
     boundary_dirichlet!(sys,iy,Γ_YSZ,data.y_YSZ)
     boundary_dirichlet!(sys,ie,Γ_LSM,data.e_LSM)    
 end
@@ -301,7 +317,7 @@ function flux!(f,_u,edge, data)
         mu2=log(1-u[iy,2])
         giy = +(mu2-mu1)-e0*za/data.T/kB*(u[iphi,2]-u[iphi,1])
         # f[iy] = data.Di*m_par*(1-data.nu)*sedan_part(giy, u[iy,1], u[iy,2])
-        f[iy] = data.Di*sedan_part(giy, u[iy,1], u[iy,2])
+        f[iy] = data.DD*sedan_part(giy, u[iy,1], u[iy,2])
     end
 end
 
@@ -330,14 +346,6 @@ function storage!(f,u,node,data)
         f[ie]= data.ie_bulk_eqn_scaling*u[ie]
     elseif node.region == Ω_YSZ
         f[iy]= u[iy]
-    end
-end
-
-function bstorage!(f,u, node, data)
-    # adjust
-    if node.region==3
-        f[iys] = u[iys]
-        f[ies] = u[ies]
     end
 end
 
@@ -531,8 +539,8 @@ end
 
 function electron_adsorption(this, u; debug_bool=false)
     # e-(LSM) => e-(s) 
-    if this.R.r > 0
-        if Bool(this.R.exp)
+    if this.E.r > 0
+        if Bool(this.E.exp)
           the_fac = 1
         else
           # LoMA
@@ -540,11 +548,11 @@ function electron_adsorption(this, u; debug_bool=false)
                (u[ie])
                *
                (u[ies])
-            )^(this.R.S/2.0)
+            )^(this.E.S/2.0)
         end
         rate = the_fac*EXP_reaction_template(
           this, 
-          this.R, 
+          this.E, 
           PI_activites= (
                             u[ies]/u[ie]
                         )
@@ -554,11 +562,22 @@ function electron_adsorption(this, u; debug_bool=false)
       rate = 0
     end
     if debug_bool
-      print("  R > ")
+      print("  E > ")
       @show the_fac, rate
     end
     return rate# LoMA (with beta = 0.5)
 end
+
+
+function bstorage!(f,u, node, data)
+    # adjust
+    if node.region==3
+        f[iys] = data.COmm*u[iys]
+        f[ios] = data.CO*u[ios]
+        f[ies] = u[ies]        
+    end
+end
+
 
 function breaction!(f,u,node, data)
     for ispec in species
@@ -571,11 +590,11 @@ function breaction!(f,u,node, data)
         r_O = oxygen_adsorption(data, u)
         # bulk
         f[ie]  = data.ie_bulk_eqn_scaling*data.nC_LSM^( -1 )*(  r_E  )
-        f[iy]  = (m_par*(1-data.nu)*data.nC_YSZ)^( -1 )*( - r_A             )
+        f[iy]  = (m_par*(1-data.nu)*data.nC_YSZ)^( -1 )*( -r_A    )
         # surface
         f[ies] = data.nC_LSM^(-2/3)*(- r_E + 2*r_R)
         f[iys] = (m_par*(1-data.nu)*data.nC_YSZ)^(-2/3)*(  r_A -  r_R )
-        f[ios] = data.COs^(-1)*(r_O)
+        f[ios] = (m_par*(1-data.nu)*data.nC_YSZ)^(-2/3)*(- 2*r_O + r_R )
         ## surface Poisson
         f[iphi] =  -e0*(
             (m_par*(1-data.nu)*data.nC_YSZ)^(2/3)*za*u[iys] 
@@ -591,6 +610,71 @@ function breaction!(f,u,node, data)
 end
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function get_oxide_electric_flux(sys, solution)
+  dummy = fooNode(0)
+  X = sys.grid.components[XCoordinates]
+  
+  dummy.region = Ω_YSZ
+  
+  uk = solution[:, end - 1]
+  ul = solution[:, end]
+  ukl = cat(uk, ul, dims=2)
+  h = X[end] - X[end - 1]
+  flux_f = zeros(sys.physics.num_species)
+  
+  
+  flux!(flux_f, ukl, dummy, sys.physics.data)
+  return sys.physics.data.S_ellyt*(flux_f[iy]/h)*e0*(-2)*sys.physics.data.nC_YSZ*m_par*(1 - sys.physics.data.nu)
+end
+
+function get_electron_electric_flux(sys, solution)
+  dummy = fooNode(0)
+  X = sys.grid.components[XCoordinates]
+  
+  dummy.region = Ω_LSM
+  uk = solution[:, 1]
+  ul = solution[:, 2]
+  ukl = cat(uk, ul, dims=2)
+  h = X[2] - X[1]
+  flux_f = zeros(sys.physics.num_species)
+  
+  
+  flux!(flux_f, ukl, dummy, sys.physics.data)
+  return sys.physics.data.S_ellyt*sys.physics.data.ie_bulk_eqn_scaling^(-1)*(flux_f[ie]/h)*e0*(-1)*sys.physics.data.nC_LSM
+end
   
 function printfields(this)
     for name in fieldnames(typeof(this))
@@ -655,6 +739,8 @@ function sys(;params_dict=:None)
     if params_dict != :None
         set_parameters!(data, params_dict)
     end
+    update_parameters!(data)
+    
     grid=makegrid(hmin=data.h_min, hmax=data.h_max, L_YSZ=data.L_YSZ, L_LSM=data.L_LSM)
     physics=VoronoiFVM.Physics(data=data,num_species=6, flux=flux!, storage=storage!, reaction=reaction!, bstorage=bstorage!, breaction=breaction!)
     sys = VoronoiFVM.System(grid,physics) # ?? Sparse
@@ -672,22 +758,22 @@ end
 
 function equilibrium_solution(sys; testing=false)
     inival=unknowns(sys)
-	inival[iphi,:] .= 0.0
-	inival[iy,:] .= sys.physics.data.y_YSZ
-	inival[ie,:] .= sys.physics.data.e_LSM
+    inival[iphi,:] .= 0.0
+    inival[iy,:] .= sys.physics.data.y_YSZ
+    inival[ie,:] .= sys.physics.data.e_LSM
     inival[iys,:] .= sys.physics.data.y_YSZ
-	inival[ies,:] .= sys.physics.data.e_LSM
-	inival[ios,:] .= 0.5
-	#
+    inival[ies,:] .= sys.physics.data.e_LSM
+    inival[ios,:] .= 0.5
+    #
     control=VoronoiFVM.NewtonControl()
     control.tol_absolute = 1e-13
-    # control.max_iterations = 1000
-    # control.damp_initial = 1e-8
-    # control.damp_growth = 1.1
+     control.max_iterations = 1000
+     control.damp_initial = 1e-8
+     control.damp_growth = 1.1
     testing ? control.verbose=true : control.verbose=false
 
     update_problem!(sys, Dict(:bias => 0.0))
-	solve!(inival,inival,sys, control=control)
+    solve!(inival,inival,sys, control=control)
     if testing 
         @show LSM_current(sys,inival)
         @show YSZ_current(sys,inival)
@@ -731,8 +817,10 @@ function phi_stationary_sweep(sys, equilibrium_solution; bias_range=collect(0.01
 end
 
 
-function test_IV(; bound=1.0, step=0.01)
-    sys = Example111TriplePBOxygen.sys()
+function test_IV(sys=Nothing; bound=1.0, step=0.01)
+    if sys==Nothing
+      sys = YSZ_LSM_model_ARO.sys()
+    end
     eq = equilibrium_solution(sys)
     df = phi_stationary_sweep(sys, eq) 
     p = Plots.plot()
@@ -780,8 +868,10 @@ function impedance_sweep(sys,steadystate;f_range=geometric(0.9, 1.0e+5, 1.1), pr
     return df
 end
 
-function impedance_sweep_test()
-    sys = YSZ_LSM_model_ARO.sys()
+function impedance_sweep_test(sys=Nothing)
+    if sys==Nothing
+      sys = YSZ_LSM_model_ARO.sys()
+    end
     eqsol = YSZ_LSM_model_ARO.equilibrium_solution(sys)#, testing=true)
     
     p = Plots.plot(ratio=:equal)
@@ -792,13 +882,42 @@ function impedance_sweep_test()
     gui(p)
 end
 
-### Electric current
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Electric currents
+ ################# LSM ############
 function LSM_current(sys, U)
     factory = VoronoiFVM.TestFunctionFactory(sys)
     tLSM = testfunction(factory, Γ, Γ_LSM)
     prefactor = sys.physics.data.ie_bulk_eqn_scaling^(-1)*e0*ze*sys.physics.data.nC_LSM
     currents = VoronoiFVM.integrate_stdy(sys, tLSM, U)
-    return prefactor*currents[ie], currents[iphi]
+    return sys.physics.data.S_ellyt.*(prefactor*currents[ie], currents[iphi])
 end
 
 function LSM_transient(sys, Unew, Uold, tstep)
@@ -808,8 +927,10 @@ function LSM_transient(sys, Unew, Uold, tstep)
     trans = VoronoiFVM.integrate(sys, tLSM, Unew, Uold, tstep)
     stdyNew = VoronoiFVM.integrate_stdy(sys, tLSM, Unew)
     stdyOld = VoronoiFVM.integrate_stdy(sys, tLSM, Uold)
-    return prefactor*trans[ie] + (stdyNew[iphi] - stdyOld[iphi])/tstep
+    return sys.physics.data.S_ellyt.*(prefactor*trans[ie] + (stdyNew[iphi] - stdyOld[iphi])/tstep)
 end
+
+ ############ YSZ #############
 function YSZ_current(sys, U)
     data = sys.physics.data
     factory = VoronoiFVM.TestFunctionFactory(sys)
@@ -817,7 +938,7 @@ function YSZ_current(sys, U)
     prefactor = e0*za*(1.0 - data.nu)*m_par*data.nC_YSZ
     stdy = VoronoiFVM.integrate_stdy(sys, tYSZ, U)
     #return (-1).*(prefactor*stdy[iy], stdy[iphi])
-    return (prefactor*stdy[iy], stdy[iphi])
+    return sys.physics.data.S_ellyt.*(prefactor*stdy[iy], stdy[iphi])
 end
 
 function YSZ_current_neg(sys, U)
@@ -834,8 +955,79 @@ function YSZ_trans_neg(sys, Unew, Uold, tstep)
     trans = VoronoiFVM.integrate(sys, tYSZ, Unew, Uold, tstep)
     stdyNew = VoronoiFVM.integrate_stdy(sys, tYSZ, Unew)
     stdyOld = VoronoiFVM.integrate_stdy(sys, tYSZ, Uold)
-    return -1 .* (prefactor*trans[iy] + (stdyNew[iphi] - stdyOld[iphi])/tstep)
+    return (-1 * sys.physics.data.S_ellyt) .* (prefactor*trans[iy] + (stdyNew[iphi] - stdyOld[iphi])/tstep)
 end
+ 
+ 
+ ########## LEGACY ############
+# return (steady, trans)
+function legacy_current(sys, U)
+  return ( legacy_current_steady(sys, U), legacy_current_transient(sys, U))
+end
+ 
+ # TODO ... prejmenovat funkce na spravne nazvy
+function legacy_current_steady(sys, U)
+  parameters = sys.physics.data
+  #u_S = tpb_view(sys, U)
+  u_S = U[:,parameters.Γ_node_idx]
+  return parameters.S_ellyt*( -2*e0*electroreaction(parameters, u_S) )
+end
+
+# .... the following function is not needed, because Juergen implemented "integrate" in a intelligent way separating different domains
+# function YSZ_reaction!(f,u,node, data)   
+#     f[ie]=0.0
+#     f[iy]=0.0
+#     if node.region == Ω_LSM
+#         f[iphi]= 0
+#     elseif node.region == Ω_YSZ
+#         f[iphi]= -e0*data.nC_YSZ*(data.zC_YSZ + (1-data.nu)*m_par*za*u[iy])
+#     end
+# end
+
+function legacy_current_transient(sys, U)
+  Qb = - integrate(sys, reaction!, U)  
+  dphi_end = U[iphi, end] - U[iphi, end-1]
+  X = sys.grid.components[XCoordinates]
+  dx_end = X[end] - X[end-1]
+  parameters = sys.physics.data
+  data = parameters
+  dphiB=parameters.epsY*(dphi_end/dx_end)
+  
+  #@show dphi_end
+  #@show dx_end
+  
+
+    
+  u_S = U[:,data.Γ_node_idx]
+  
+  #breaction_output = zeros(length(species_names))
+  #breaction!(breaction_output, u_S, fooNode(Γ), parameters)
+  #Qs = - breaction_output[iphi]
+  
+  Qs = e0*(
+            (m_par*(1-data.nu)*data.nC_YSZ)^(2/3)*za*u_S[iys] 
+            +
+            data.nC_YSZ^(2/3)*data.zC_YSZ
+            + 
+            data.nC_LSM^(2/3)*(
+                ze*u_S[ies] + zC_LSM
+            )
+        )
+    
+   @show Qb
+   @show Qb[iphi, 2]
+   @show Qs
+#   @show dphiB
+#   @show parameters.S_ellyt
+   
+  return parameters.S_ellyt*( 
+                      - Qs 
+                      - Qb[iphi, 2]  # YSZ naboj
+                      #- Qb[iphi, 1  ] 
+                      - dphiB
+                    )
+end
+ 
  
 function tpb_view(sys, solution)
     subgrid_tpb = subgrid(sys.grid,[Γ], boundary=true)
@@ -862,18 +1054,20 @@ function phi_view(sys, solution; pos=5e-9)
     return solution[iphi,ineg], view(solution[iphi,:],subgrid_tpb)[1], solution[iphi,ipos]
 end
 
-function plotsolution(sys,solution;zoom=1.0)
+function plotsolution(sys,solution;zoom=1.0)        
     @show solution[iphi,1]
-    grid = sys.grid
+    grid = deepcopy(sys.grid)
     zoom == 1.0 ? zoo=1 : zoo=3
     visualizer = GridVisualize.GridVisualizer(layout=(1,zoo),resolution=(600,300),Plotter=PyPlot,fignum=1);
     
     ysz = Ω_YSZ
     lsm = Ω_LSM
 
+    
     subgrid_YSZ = subgrid(grid,[ysz])
     subgrid_LSM = subgrid(grid,[lsm])
     subgrid_zoom= subgrid(grid,[lsm,ysz])
+    
     
 	eLSM=view(solution[ie,:],subgrid_LSM)
 	yYSZ=view(solution[iy,:],subgrid_YSZ)
@@ -881,13 +1075,15 @@ function plotsolution(sys,solution;zoom=1.0)
 	scalarplot!(visualizer[1,1],subgrid_zoom, phi_zoom,clear=true,color=:red, label="phi")
 	scalarplot!(visualizer[1,1],subgrid_LSM, eLSM,clear=false,show=true,color=:green, label="e")
 	scalarplot!(visualizer[1,1],subgrid_YSZ, yYSZ,clear=false,show=true,color=:blue, label="y")
-
+	
+	
+	
     if zoo != 1
         @show zoom
         lsm=10
         ysz=20
-        ExtendableGrids.cellmask!(grid,[-1.0*zoom],[0.0],lsm, tol=1e-15)
-        ExtendableGrids.cellmask!(grid,[0.0],[1.0*zoom],ysz, tol=1e-15)
+        ExtendableGrids.cellmask!(grid,[-1.0*zoom],[0.0],lsm, tol=1e-21)
+        ExtendableGrids.cellmask!(grid,[0.0],[1.0*zoom],ysz, tol=1e-21)        
         subgrid_YSZ = subgrid(grid,[ysz])
         subgrid_LSM = subgrid(grid,[lsm])
         subgrid_zoom= subgrid(grid,[lsm,ysz])
@@ -913,3 +1109,13 @@ function geometric(start::Float64, stop::Float64, quotient::Float64)
 end
 
 end # of the module
+
+
+
+
+
+
+
+
+
+

@@ -180,7 +180,7 @@ function simple_run(SIM_list=Nothing; TC=Nothing, pO2=Nothing, bias=0.0, data_se
         if size(plot_names,1) < 1
           plot_prms_string = ""
         else
-          plot_prms_string = " $(string(plot_names)) = $(plot_values)"
+          plot_prms_string = " $(string(plot_names)) = $(plot_values)"          
         end
         SIM_sim = apply_checknodes(SIM, SIM_raw, SIM.checknodes)
         
@@ -207,11 +207,11 @@ function simple_run(SIM_list=Nothing; TC=Nothing, pO2=Nothing, bias=0.0, data_se
       
       end
       if size(prms_values[active_idx],1)>1
-        for i in prms_values[active_idx]
+        for i in prms_values[active_idx]          
           recursive_simple_run_call(
             push!(deepcopy(output_prms),i),
             push!(deepcopy(plot_names),prms_names[active_idx]),
-            append!(deepcopy(plot_values),i),
+            push!(deepcopy(plot_values),i),
             active_idx + 1)
         end
       else
@@ -234,7 +234,7 @@ function simple_run(SIM_list=Nothing; TC=Nothing, pO2=Nothing, bias=0.0, data_se
       end
     end
     if prms_names!=Nothing
-      recursive_simple_run_call([], Array{String}(undef,(0)), Array{Float64}(undef,(0)), 1)
+      recursive_simple_run_call([], Array{String}(undef,(0)), Array{Any}(undef,(0)), 1)
     end
   end
   
@@ -795,8 +795,7 @@ function run_SIM_fitting(SIM_fitting::SIM_fitting_struct;
   
   println(" -------- run_SIM_fitting --- started! -------- ")
   #return 0
-  
-  physical_model_name="necum"
+    
   iteration_counter = 0
   
   if pyplot
@@ -1271,7 +1270,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
     for (i, reaction_name) in enumerate(show_reactions)
       # forward
       push!(r_f_lists, 
-        reactions_lists[r_idx][i] .* exp.(- (10.0^gv(reaction_name*".S"))* reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
+        (reactions_lists[r_idx][i]/(10.0^gv(reaction_name*".S"))) .* exp.(- (10.0^gv(reaction_name*".S"))* reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
       )
       subplot(2,2,1)
       
@@ -1295,7 +1294,7 @@ function plot_temp_parameters(;prms_names, prms_values, TC_list = [700, 750, 800
       
       # backward
       push!(r_b_lists, 
-        reactions_lists[r_idx][i] .* exp.( (10.0^gv(reaction_name*".S"))*reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
+        (reactions_lists[r_idx][i]/(10.0^gv(reaction_name*".S"))) .* exp.( (10.0^gv(reaction_name*".S"))*reactions_lists[DG_idx][i] .* eV ./ (2*kB*T_list))
       )
       subplot(2,2,2)
       xlabel("TC (°C)")

@@ -365,7 +365,7 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
       end
     end
   end
-  return EIS_exp
+  return EIS_exp_NEW
 end
 
 # function EIS_capacitance_test()

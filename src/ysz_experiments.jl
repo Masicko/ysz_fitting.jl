@@ -75,45 +75,175 @@ function run_new(;physical_model_name,
                 
                 
                 
-                
+    # Geometry of the problem
+    #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
+    
+    #porosity = 0.0
+    porosity = 0.3
+    if data_set == Nothing
+      AreaEllyt = 1.0    # random value
+    else
+      if data_set == "OLD_MONO_100"
+        AreaEllyt = 0.00011309724 * (1-porosity)       # m^2 (geometrical area)*(1 - porosity)
+      elseif data_set[1:4] == "MONO"
+        AreaEllyt = 0.00011309724 * (1-porosity)       # m^2 (geometrical area)*(1 - porosity)
+      elseif data_set[1:4] == "POLY"
+        AreaEllyt = 0.000201 * (1-porosity)            # m^2 (geometrical area)*(1 - porosity)
+      else
+        println("\nERROR: ysz_experiments.jl: data_set NOT RECOGNIZED !!!! \n")
+        return throw(Exception)
+      end
+    end             
                 
                 
                 
                 
     ### LSM_YSZ domain
     model_symbol = eval(Symbol(physical_model_name))
+        
     
     if length(physical_model_name) > 13 && physical_model_name[1:13]=="YSZ_LSM_model"             
       push!(prms_names_in, "T")
       push!(prms_values_in, T)
       
       push!(prms_names_in, "pO2")
-      push!(prms_values_in, T)
+      push!(prms_values_in, pO2)
       
-      #push!(prms_names_in, "h_max")
-      #push!(prms_values_in, (10.0^dx_exp)*1.0e-2                                            )
+      push!(prms_names_in, "S_ellyt")
+      push!(prms_values_in, AreaEllyt)
+      
+      #push!(prms_names_in, "h_min")
+      #push!(prms_values_in, (10.0^dx_exp)*1.0e-4                                           )
       
       params_dict=Dict{Symbol, Any}(Pair.(Symbol.(prms_names_in), prms_values_in))
       
       sys = model_symbol.sys(params_dict=params_dict)
-      #sys = model_symbol.sys()
+      #sys = model_symbol.sys()      
       
-      eq_solution = model_symbol.equilibrium_solution(sys)
+      #model_symbol.test_IV(sys)
+      #model_symbol.impedance_sweep_test(sys)
+      
+      
+      eq_solution = model_symbol.equilibrium_solution(sys)            
+      
+      
+# #       
+# #       begin    # equilibrium solution testing
+# #           @show "TU-------------------"
+# #           
+# #           println("I-YSZ    = ",model_symbol.YSZ_current_neg(sys, eq_solution))
+# #           println("I-LSM    = ",model_symbol.LSM_current(sys, eq_solution))
+# #           println("I-legacy = ",model_symbol.legacy_current(sys, eq_solution))
+# #           println("I_OXIDE  = ",model_symbol.get_oxide_electric_flux(sys, eq_solution))
+# #           println("I_elect  = ",model_symbol.get_electron_electric_flux(sys, eq_solution))
+# #           
+# #           model_symbol.plotsolution(sys, eq_solution, zoom=5.0e-9)
+# #           return
+# #       end
       
 #      model_symbol.phi_stationary_sweep(sys, eq_solution)
-      
+# # #           for name in fieldnames(typeof(sys_orig))            
+# # #             @show " -- ok -- $(name)"
+# # #             if getfield(sys_orig,name) != getfield(sys,name)
+# # #               
+# # #               @printf("%8s = ",name)
+# # #               #@show getfield(sys_orig,name), getfield(sys,name)
+# # #               @show "AAAAAAAAAA"
+# # #             end
+# # #           end
 
+
+function potential_step_response(sys, pstep=0.1; Plotter=nothing)
+    zoom=1e-9
+    data = sys.physics.data
+    eqsol = model_symbol.equilibrium_solution(sys)
+    solOld = deepcopy(eqsol)
+    solNew = deepcopy(eqsol)
+
+    df = DataFrame(time=Float64[],bias=Float64[], solution=typeof(eqsol)[])
+    t = 0.0
+    push!(df, Dict(:time => t, :bias => data.bias, :solution => deepcopy(solNew)))
+
+    data.bias = pstep
+    model_symbol.set_bcs!(sys)
+    if !isnothing(Plotter)
+        grid = deepcopy(sys.grid)
+        lsm=10
+        ysz=20
+        ExtendableGrids.cellmask!(grid,[-1.0*zoom],[0.0],lsm, tol=1e-15)
+        ExtendableGrids.cellmask!(grid,[0.0],[1.0*zoom],ysz, tol=1e-15)
+        zoom_grid = subgrid(grid, [lsm,ysz])
+        visualizer = GridVisualize.GridVisualizer(layout=(1,1),resolution=(600,300),Plotter=Plotter,fignum=1);
+        GridVisualize.scalarplot!(visualizer[1,1], zoom_grid, view(eqsol[iy,:], zoom_grid), title="($t)", show=true)   
+    end
+    tstep = 1e-8
+    tend = 1.0e+3
+    while t < tend
+        t += tstep
+        model_symbol.solve!(solNew, solOld, sys, tstep=tstep)
+        push!(df, Dict(:time => t, :bias => data.bias, :solution => deepcopy(solNew)))
+        solOld .= solNew
+        tstep > Inf ? tstep = 9e-4 : tstep *= 1.3
+        !isnothing(Plotter) ? GridVisualize.scalarplot!(visualizer[1,1], zoom_grid, view(solNew[iy,:], zoom_grid), title="($t)", show = true) : Plotter=nothing 
+    end
+    !isnothing(Plotter) ? GridVisualize.scalarplot!(visualizer[1,1], zoom_grid, view(eqsol[iy,:] - solNew[iy,:], zoom_grid), title="($t)", show=true, clear=true, color=:red)   : Plotter=nothing 
+    return df
+end
       
       if EIS_IS
         if bias == 0
           biased_steadystate_solution = eq_solution
         else
-          biased_steadystate_solution = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=[bias])[end][:solution]
+          biased_steadystate_solution = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=[bias])[end][!, :solution]
+        end
+      
+        function evaluate_total_current(generic_current_funcion, U_old, U_new, t_step)
+          (C_old_steady, C_old_trans) = generic_current_funcion(sys, U_old)
+          (C_new_steady, C_new_trans) = generic_current_funcion(sys, U_new)
+          
+          return (C_old_steady + C_new_steady)/2 + (C_new_trans - C_old_trans)/t_step
         end
         
         
+        
+# # #         begin
+# # #               df_sol = potential_step_response(sys)[!, :solution]
+# # #               
+# # #               for i in [2, length(df_sol)]
+# # #                 model_symbol.plotsolution(sys, df_sol[i], zoom=5.0e-9)
+# # #                 println("I-YSZ    = ", evaluate_total_current(model_symbol.YSZ_current_neg, df_sol[i-1], df_sol[i], 1e-8))
+# # #                 println("I-LSM    = ", evaluate_total_current(model_symbol.LSM_current, df_sol[i-1], df_sol[i], 1e-8))
+# # #                 println("I-legacy = ", evaluate_total_current(model_symbol.legacy_current, df_sol[i-1], df_sol[i], 1e-8))
+# # #                 #println("I-legacy = ",model_symbol.legacy_current(sys, df_sol[1]))
+# # #                 pause(5)
+# # #               end
+# # #               return
+# # #         end
+      
+#         phi_neg, phi_gamma, phi_pos = model_symbol.phi_view(sys, biased_steadystate_solution)
+#         println(" <><><><> zeta = E_LSM/E_YSZ = ", (phi_neg - phi_gamma)/(phi_gamma - phi_pos))
+#         
+#         bias_range = [0.0, 0.05, 0.1]
+# #         #bias_range = [0.05]
+#         biased_steadystate_solution = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=bias_range)[!, :solution]
+#         #for (i, bias) in enumerate(bias_range)
+#         for i in 1:length(bias_range)  
+#           
+#           #model_symbol.plotsolution(sys, biased_steadystate_solution, zoom=5.0e-9)
+#           println(" ---------------- ")
+#           println("I-YSZ    = ",model_symbol.YSZ_current_neg(sys, biased_steadystate_solution[i]))
+#           println("I-LSM    = ",model_symbol.LSM_current(sys, biased_steadystate_solution[i]))
+#           println("I-legacy = ",model_symbol.legacy_current(sys, biased_steadystate_solution[i]))
+#           println("I_OXIDE  = ",model_symbol.get_oxide_electric_flux(sys, biased_steadystate_solution[i]))
+#           println("I_elect  = ",model_symbol.get_electron_electric_flux(sys, biased_steadystate_solution[i]))
+#           
+#           #pause(3)
+#         end                
+        
         return model_symbol.impedance_sweep(sys, biased_steadystate_solution, f_range=model_symbol.geometric(Float64.(f_range)...),
           currentF=model_symbol.YSZ_current_neg
+          #currentF=model_symbol.LSM_current
+          #currentF=model_symbol.legacy_current
           )        
       end
       if voltammetry && fast_CV_mode
@@ -275,25 +405,6 @@ function run_new(;physical_model_name,
     ############################################
     
     # prms_in = [ A0, R0, DGA, DGR, beta, A ]
-
-    # Geometry of the problem
-    #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
-    
-    porosity = 0.3
-    if data_set == Nothing
-      AreaEllyt = 1.0    # random value
-    else
-      if data_set == "OLD_MONO_100"
-        AreaEllyt = 0.00011309724 * (1-porosity)       # m^2 (geometrical area)*(1 - porosity)
-      elseif data_set[1:4] == "MONO"
-        AreaEllyt = 0.00011309724 * (1-porosity)       # m^2 (geometrical area)*(1 - porosity)
-      elseif data_set[1:4] == "POLY"
-        AreaEllyt = 0.000201 * (1-porosity)            # m^2 (geometrical area)*(1 - porosity)
-      else
-        println("\nERROR: ysz_experiments.jl: data_set NOT RECOGNIZED !!!! \n")
-        return throw(Exception)
-      end
-    end
     
     #width_Ellyt = 0.00045           # m     width of the half-cell
     #width_Ellyt = 0.0005           # m     width of the half-cell

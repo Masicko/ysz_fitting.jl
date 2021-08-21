@@ -54,6 +54,7 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     # switches
     separate_vacancy::Bool
     weird_DD::Bool
+    diffCoef::String
     
     # reactions
     A::reaction_struct    # oxide adsorption from YSZ
@@ -61,7 +62,7 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     O::reaction_struct    # oxygen adsorption from gas
     
     # inductance
-    L::Float64  
+    L::Float64
     
     # fixed
     DD::Float64   # diffusion coefficient [m^2/s]
@@ -125,7 +126,8 @@ function YSZParameters(this)
     
     #swithes
     this.separate_vacancy = true
-    this.weird_DD = true
+    this.weird_DD = false
+    this.diffCoef = "II"  # 2 = "II" = y (our standard) /// 3 = "III" = y(1-y) /// 1 = "I" = 1 (NP)
     
     # experimental conditions
     this.pO2=1.0                   # O2 atmosphere 
@@ -140,7 +142,7 @@ function YSZParameters(this)
     
     this.A.beta = 0.5
     this.A.S= 10^0.0
-    this.A.exp= 1
+    this.A.exp= 0
     
     # electron-transfer reaction
     this.R = reaction_struct(1,1,1,1,1, 1,1,1,1,1, 1)
@@ -151,7 +153,7 @@ function YSZParameters(this)
     
     this.R.beta= 0.5
     this.R.S= 10^0.0
-    this.R.exp = 1
+    this.R.exp = 0
     
     # oxygen adsorption from gas
     this.O = reaction_struct(1,1,1,1,1, 1,1,1,1,1, 1)
@@ -162,7 +164,7 @@ function YSZParameters(this)
     
     this.O.beta = 0.5
     this.O.S= 10^0.0
-    this.O.exp= 1
+    this.O.exp= 0
     
     this.L=2.45e-6
     
@@ -471,18 +473,6 @@ function storage!(f,u, node, this::YSZParameters)
     f[iy]=this.mO*this.m_par*(1.0-this.nu)*u[iy]/this.vL
 end
 
-function bstorage!(f,u,node, this::YSZParameters)
-    if  node.region==1
-      if this.separate_vacancy
-        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
-        f[iyOs]=this.mO*this.CO*u[iyOs]/this.areaL
-      else
-        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
-        f[iyOs]=this.mO*this.COmm*u[iyOs]/this.areaL
-      end
-    end
-end
-
 function get_conductivity(parameters; DD=parameters.DD, nu=parameters.nu, perform_update=true)
   if perform_update
     DD_orig = parameters.DD
@@ -536,6 +526,13 @@ function get_conductivity(parameters; DD=parameters.DD, nu=parameters.nu, perfor
 end
 
 function flux_core!(f, uk, ul, this::YSZParameters)
+    # TO EREASE
+    #
+    return flux_core____ONLY_TESTING!(f, uk, ul, this)
+    #
+    ##
+    ### 
+    
     # our standard flux
     f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])
     
@@ -558,7 +555,7 @@ end
 
 
 function flux_core____ONLY_TESTING!(f, uk, ul, this::YSZParameters)
-  case = "II"
+  case = this.diffCoef
   if case == "II"
     # our standard flux
     f[iphi]=this.eps0*(1+this.chi)*(uk[iphi]-ul[iphi])
@@ -590,6 +587,9 @@ function flux_core____ONLY_TESTING!(f, uk, ul, this::YSZParameters)
     f[iy]= (
         this.DD
         *
+        #jen takova kravina
+        10000
+        *
         this.mO*this.m_par*(1.0-this.nu)/this.vL
         *        
         (bm*uk[iy]-bp*ul[iy])
@@ -609,6 +609,10 @@ function flux_core____ONLY_TESTING!(f, uk, ul, this::YSZParameters)
         *        
         (bm*uk[iy]-bp*ul[iy])
     )
+  else
+    println("ERROR: diffCoef must have a value from {\"I\", \"II\", \"III\"}")
+    throw(Exception)
+    return
   end
 end
 
@@ -807,6 +811,17 @@ function exponential_gas_adsorption(this::YSZParameters, u; debug_bool=false)
     return rate
 end
 
+function bstorage!(f,u,node, this::YSZParameters)
+    if  node.region==1
+      if this.separate_vacancy
+        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
+        f[iyOs]=this.mO*this.CO*u[iyOs]/this.areaL
+      else
+        f[iyAs]=this.mO*this.COmm*u[iyAs]/this.areaL
+        f[iyOs]=this.mO*this.COmm*u[iyOs]/this.areaL
+      end
+    end
+end
 
 # surface reaction + adsorption
 #function generic_operator!(f, u, node, sys)
@@ -826,6 +841,24 @@ function breaction!(f,u,node,this::YSZParameters)
         f[iphi]=0
     end
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function direct_capacitance(this::YSZParameters, PHI)
     # Clemens' analytic solution
