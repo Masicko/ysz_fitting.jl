@@ -166,8 +166,10 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
     fNAME=string("../snehurka/experimental_data_PSS/DAN_nove_MONO/111/$(TC) $(pO2_Dan)/eis_$(bias_mV).z")
   
   
-  
-  
+  elseif data_set=="Mince_l-h"
+    fNAME=string("../snehurka/experimental_data_PSS/Mince/1. cyklus - low-high/eis_$(TC).z")
+  elseif data_set=="Mince_h-l"
+    fNAME=string("../snehurka/experimental_data_PSS/Mince/2. cyklus - high-low/eis_$(TC).z")
   
   
   ##########################################################

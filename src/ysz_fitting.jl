@@ -283,6 +283,9 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_nu
   end 
 
   if SIM_list==Nothing
+    if physical_model_name==Nothing
+      physical_model_name = "cosi"
+    end
     SIM_list = construct_SIM_list(TC=TC, pO2=pO2, bias=bias, data_set=data_set, simulations=["EIS"], 
                                     physical_model_name=physical_model_name)
   end
@@ -291,6 +294,10 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_nu
     # to add .... , tau_min_fac=tau_min_fac, tau_max_fac=tau_max_fac, tau_range_fac=tau_range_fac
     DRT_control = DRT_control_struct(lambda_item, tau_min_fac, tau_max_fac, tau_range_fac, peak_merge_tol, Nothing)
     SIM.DRT_control = DRT_control
+    SIM.DRT_draw_semicircles=draw_semicircles
+    SIM.DRT_backward_check=backward_check
+    SIM.plot_option=plot_option
+    SIM.f_range=f_range
     #@show SIM
     
     if mode=="EEC"
@@ -303,8 +310,8 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_nu
     elseif mode=="exp"
       #@show SIM.checknodes
       EIS_df = apply_checknodes(SIM, import_data_to_DataFrame(SIM), SIM.checknodes)
-      if data_set_item[end-1:end]==".z"
-        plot_bool && typical_plot_exp(SIM, EIS_df, "!$(data_set_item)") 
+      if SIM.data_set[end-1:end]==".z"
+        plot_bool && typical_plot_exp(SIM, EIS_df, "!$(SIM.data_set)") 
       else
         plot_bool && typical_plot_exp(SIM, EIS_df) 
       end
