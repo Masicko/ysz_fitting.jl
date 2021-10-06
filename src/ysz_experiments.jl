@@ -122,12 +122,33 @@ function run_new(;physical_model_name,
       
       #model_symbol.test_IV(sys)
       #model_symbol.impedance_sweep_test(sys)
-      
-      
+            
       eq_solution = model_symbol.equilibrium_solution(sys)            
       
+      # I-V curve ##########   ########################################
+# #       begin
+# #         bias_range = collect(0.0 : 0.05 : 0.10)
+# #         
+# #           #bias_range = [0.05]
+# #         biased_steadystate_solution = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=bias_range)[!, :solution]
+# #         for (i, bias) in enumerate(bias_range)
+# #           #for i in 1:length(bias_range)  
+# #           
+# #           model_symbol.plotsolution(sys, biased_steadystate_solution[i], zoom=5.0e-9)
+# #           println(" ---------------- ")
+# #           println("I-YSZ    = ",model_symbol.YSZ_current_neg(sys, biased_steadystate_solution[i]))
+# #           println("I-LSM    = ",model_symbol.LSM_current(sys, biased_steadystate_solution[i]))
+# #           println("I-legacy = ",model_symbol.legacy_current(sys, biased_steadystate_solution[i]))
+# #           println("I_OXIDE  = ",model_symbol.get_oxide_electric_flux(sys, biased_steadystate_solution[i]))
+# #           println("I_elect  = ",model_symbol.get_electron_electric_flux(sys, biased_steadystate_solution[i]))
+# #           
+# #           pause(1)
+# #         end
+# #       end
+
+
       
-# #       
+      
 # #       begin    # equilibrium solution testing
 # #           @show "TU-------------------"
 # #           

@@ -238,16 +238,28 @@ function set_parameters!(this, d::Dict)
       throw(Exception)
     end
   end
+  update_parameters!(this)
 end
 
 
 function equilibrium_voltage(sys)
     # adjust
     data = sys.physics.data
-    E = kB*data.T/e0/za*(
-        -2*log(data.e_LSM) + log(data.y_YSZ) - log(1-data.y_YSZ)
-        -( data.A.DG + data.R.DG + 2*data.E.DG)*e0/kB/data.T
-    )
+    E = (1/2)*(
+          kB*data.T/e0*log(
+            (
+              (data.pO2)^(1/2)
+              *
+              (data.e_LSM)^2 
+              *
+              ((1-data.y_YSZ)/(data.y_YSZ))
+            ) # pokus s prevracenou hodnotou neni dobry           
+          )
+          -
+          (1/e0)*(
+            data.A.DG + data.R.DG + 2*data.E.DG + data.O.DG/2
+          )
+        )
 end
 
 function set_bcs!(sys)
@@ -359,11 +371,13 @@ function EXP_reaction_template(this, RR::reaction_struct; PI_activites)
               #(RR.r)
               *(
                   exp(-RR.beta*RR.S*
+                    (
+                      RR.DG
+                    )
+                    /(kB*this.T)
+                  )                  
+                  *
                   (
-                    RR.DG 
-                  )
-                  /(kB*this.T))
-                  *(
                     PI_activites
                   )^(-RR.beta*RR.S)
                   -
@@ -382,7 +396,7 @@ end
 # surface reactions
 function oxide_desorption(this, u; debug_bool=false)
     if this.A.r > 0
-        #  <><><><><><><>  this is a correct direction ! <><><><><><><><>
+        #  <><><><><><><>  this is the correct direction ! <><><><><><><><>
         # O-2(s) + V(y) => O-2(y) + V(s)
         if Bool(this.A.exp)
           the_fac = 1
@@ -442,9 +456,9 @@ function electroreaction(this, u; debug_bool=false)
             the_fac = (
                 (u[ios]*(1-u[ios]))
                 *
-                (u[iys]*(1-u[iys]))               
+                (u[iys]*(1-u[iys]))              
                 *
-                (u[ies])^2.0
+                ((u[ies])^2.0)
               )^(this.R.S/2.0)
           else
             the_fac = (
@@ -465,7 +479,7 @@ function electroreaction(this, u; debug_bool=false)
                             /
                             (u[ios]/(1-u[ios]))
                             /
-                            u[ies]
+                            (u[ies]^2)
                           )
                         :
                           (
@@ -738,8 +752,7 @@ function sys(;params_dict=:None)
     data=materialParameters()            
     if params_dict != :None
         set_parameters!(data, params_dict)
-    end
-    update_parameters!(data)
+    end  
     
     grid=makegrid(hmin=data.h_min, hmax=data.h_max, L_YSZ=data.L_YSZ, L_LSM=data.L_LSM)
     physics=VoronoiFVM.Physics(data=data,num_species=6, flux=flux!, storage=storage!, reaction=reaction!, bstorage=bstorage!, breaction=breaction!)
