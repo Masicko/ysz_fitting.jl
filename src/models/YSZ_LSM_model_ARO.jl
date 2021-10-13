@@ -847,19 +847,27 @@ function test_IV(sys=Nothing; bound=1.0, step=0.01)
     return df
 end
 
-function impedance_sweep(sys,steadystate;f_range=geometric(0.9, 1.0e+5, 1.1), print_bool=false, currentF=LSM_current,excited_bc = Γ_LSM,
-    excited_spec = iphi)
+function impedance_sweep(sys,steadystate;f_range=geometric(0.9, 1.0e+5, 1.1), print_bool=false, currentF=Nothing,excited_bc = Γ_LSM,
+    excited_spec = iphi, functional_current=false)
 
     # excited_bcval=sys.physics.data.bias + equilibrium_voltage(sys)
     excited_bcval=sys.boundary_values[excited_spec,excited_bc]
 
     function I_stdy(meas, u)
         U=reshape(u,sys)
-        meas[1] = currentF(sys, U)[1]
+        if functional_current
+          currentF(sys)[1](meas, U)
+        else
+          meas[1] = currentF(sys, U)[1]
+        end
     end
     function I_tran(meas, u)
-        U=reshape(u,sys)
-        meas[1] = currentF(sys, U)[2]
+        U=reshape(u,sys)        
+        if functional_current
+          currentF(sys)[1](meas, U)
+        else
+          meas[1] = currentF(sys, U)[2]
+        end
     end
 
     # Create impedance system
@@ -943,6 +951,29 @@ function LSM_transient(sys, Unew, Uold, tstep)
     return sys.physics.data.S_ellyt.*(prefactor*trans[ie] + (stdyNew[iphi] - stdyOld[iphi])/tstep)
 end
 
+function LSM_testing_current(sys)
+    factory=VoronoiFVM.TestFunctionFactory(sys)
+    measurement_testfunction=VoronoiFVM.testfunction(factory, Γ, Γ_LSM)
+    data = sys.physics.data
+    ypf = sys.physics.data.ie_bulk_eqn_scaling^(-1)*e0*ze*sys.physics.data.nC_LSM
+    # transient part of measurement functional 
+    function meas_stdy(meas, u)
+      u=reshape(u,sys)
+      meas[1]=-ypf*VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iy]
+      nothing
+    end
+    # steady part of measurement functional
+    function meas_tran(meas, u)
+      u=reshape(u,sys)
+      meas[1]=       
+        -ypf*(VoronoiFVM.integrate_tran(sys,measurement_testfunction,u)[iy])
+        + 
+        VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iphi]        
+      nothing      
+    end
+    return meas_stdy, meas_tran
+end
+
  ############ YSZ #############
 function YSZ_current(sys, U)
     data = sys.physics.data
@@ -971,6 +1002,28 @@ function YSZ_trans_neg(sys, Unew, Uold, tstep)
     return (-1 * sys.physics.data.S_ellyt) .* (prefactor*trans[iy] + (stdyNew[iphi] - stdyOld[iphi])/tstep)
 end
  
+function YSZ_testing_current(sys)
+    factory=VoronoiFVM.TestFunctionFactory(sys)
+    measurement_testfunction=VoronoiFVM.testfunction(factory, Γ, Γ_YSZ)
+    data = sys.physics.data
+    ypf = e0*za*(1.0 - data.nu)*m_par*data.nC_YSZ
+    # transient part of measurement functional 
+    function meas_stdy(meas, u)
+      u=reshape(u,sys)
+      meas[1]=-ypf*VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iy]
+      nothing
+    end
+    # steady part of measurement functional
+    function meas_tran(meas, u)
+      u=reshape(u,sys)
+      meas[1]=       
+        -ypf*(VoronoiFVM.integrate_tran(sys,measurement_testfunction,u)[iy])
+        + 
+        VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iphi]        
+      nothing      
+    end
+    return meas_stdy, meas_tran
+end 
  
  ########## LEGACY ############
 # return (steady, trans)

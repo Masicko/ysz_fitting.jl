@@ -55,6 +55,7 @@ mutable struct YSZParameters <: VoronoiFVM.AbstractData
     separate_vacancy::Bool
     weird_DD::Bool
     diffCoef::String
+    NEW_current::Bool
     
     # reactions
     A::reaction_struct    # oxide adsorption from YSZ
@@ -128,6 +129,7 @@ function YSZParameters(this)
     this.separate_vacancy = true
     this.weird_DD = false
     this.diffCoef = "II"  # 2 = "II" = y (our standard) /// 3 = "III" = y(1-y) /// 1 = "I" = 1 (NP)
+    this.NEW_current = false
     
     # experimental conditions
     this.pO2=1.0                   # O2 atmosphere 
@@ -901,12 +903,45 @@ end
 
 
 
+################ current calculation ##########
+function testing_current(sys)
+    factory=VoronoiFVM.TestFunctionFactory(sys)
+    measurement_testfunction=VoronoiFVM.testfunction(factory,[1],[2])
+    data = sys.physics.data
+    ypf = data.e0/data.mO*data.zA
+    # transient part of measurement functional 
+    function meas_stdy(meas, u)
+      u=reshape(u,sys)
+      meas[1]=-ypf*VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iy]
+      nothing
+    end
+    # steady part of measurement functional
+    function meas_tran(meas, u)
+      u=reshape(u,sys)
+      meas[1]=       
+        -ypf*(VoronoiFVM.integrate_tran(sys,measurement_testfunction,u)[iy])
+        + 
+        VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iphi]        
+      nothing      
+    end
+    return meas_stdy, meas_tran
+end
 
 
-
-
-
-
+#
+# Steady part of measurement functional
+#
+function set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
+    
+    if parameters.NEW_current == true
+      testing_current(sys)[1](meas, U)
+      meas[1] = AreaEllyt*meas[1]
+      #@show "STDY"
+    else
+      meas[1] = AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
+      return AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
+    end
+end
 
 #
 # Transient part of measurement functional
@@ -919,17 +954,22 @@ function set_meas_and_get_tran_I_contributions(meas, U, sys, parameters, AreaEll
     dx_end = X[end] - X[end-1]
     dphiB=parameters.eps0*(1+parameters.chi)*(dphi_end/dx_end)
     Qs= (parameters.e0/parameters.areaL)*parameters.zA*U[iyAs,1]*parameters.COmm # (e0*zA*nA_s)
-    meas[1]= AreaEllyt*( -Qs[1] -Qb[iphi]  -dphiB)
-    return ( -AreaEllyt*Qs[1], -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)
+    if parameters.NEW_current == true
+      testing_current(sys)[2](meas, U)
+      meas[1] =                 AreaEllyt*meas[1]  
+      #@show "TRAN"
+    else
+      meas[1]= AreaEllyt*( -Qs[1] -Qb[iphi]  -dphiB)
+      return ( -AreaEllyt*Qs[1], -AreaEllyt*Qb[iphi], -AreaEllyt*dphiB)
+    end
 end
 
-#
-# Steady part of measurement functional
-#
-function set_meas_and_get_stdy_I_contributions(meas, U, sys, parameters, AreaEllyt, X)
-    meas[1] = AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
-    return AreaEllyt*(-2*parameters.e0*electroreaction(parameters, U[:, 1]))
-end
+
+
+
+
+
+
 
 
 end

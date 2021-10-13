@@ -21,6 +21,7 @@ using CSV
 using LeastSquaresOptim
 using LinearAlgebra
 using SparseArrays
+using Plots
 
 ##########################################
 # internal import of YSZ repo ############
@@ -213,10 +214,42 @@ end
       
       if EIS_IS
         if bias == 0
-          biased_steadystate_solution = eq_solution
+          biased_steadystate_solution = eq_solution         
         else
-          biased_steadystate_solution = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=[bias])[end][!, :solution]
+          biased_steadystate_solution = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=[0.0, bias])[end][!, :solution]
         end
+        
+        # ####### # # # # attempt
+        meas_stdy = [1.0,2.0]
+        meas_tran = [1.0,2.0]
+        model_symbol.LSM_testing_current(sys)[1](meas_stdy, biased_steadystate_solution)
+        model_symbol.LSM_testing_current(sys)[2](meas_tran, biased_steadystate_solution)
+        @show "LSM", (meas_stdy[1], meas_tran[1])
+        
+        model_symbol.YSZ_testing_current(sys)[1](meas_stdy, biased_steadystate_solution)
+        model_symbol.YSZ_testing_current(sys)[2](meas_tran, biased_steadystate_solution)
+        @show "YSZ", (meas_stdy[1], meas_tran[1])
+        
+        
+        println("I-YSZ    = ",model_symbol.YSZ_current_neg(sys, biased_steadystate_solution))
+        println("I-LSM    = ",model_symbol.LSM_current(sys, biased_steadystate_solution))
+        println("I-legacy = ",model_symbol.legacy_current(sys, biased_steadystate_solution))
+        println("I_OXIDE  = ",model_symbol.get_oxide_electric_flux(sys, biased_steadystate_solution))
+        println("I_elect  = ",model_symbol.get_electron_electric_flux(sys, biased_steadystate_solution))
+        return
+        
+        p = Plots.plot(ratio=:equal)
+        for cF in [model_symbol.YSZ_current, model_symbol.LSM_current]
+            df = model_symbol.impedance_sweep(sys, biased_steadystate_solution,                                 
+                                  currentF=cF,
+                                  functional_current=false,
+                                  
+                                  #currentF=LSM_current,                                              
+                                  )
+            Plots.plot!(p, real.(df.Z), -imag.(df.Z), seriestype=:scatter, label=string(Symbol(cF)))
+        end
+        gui(p)
+        return
       
         function evaluate_total_current(generic_current_funcion, U_old, U_new, t_step)
           (C_old_steady, C_old_trans) = generic_current_funcion(sys, U_old)

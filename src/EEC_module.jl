@@ -98,6 +98,7 @@ function get_EEC(EEC_structure)
     end
   end
   
+  append!(prms_names, ["Err"])
   EEC_actual.prms_names = prms_names
   return  EEC_actual
 end
@@ -1076,7 +1077,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
     EEC_actual.prms_values = deepcopy(best_prms_values)
     EIS_EEC = get_EIS_from_EEC(EEC_actual, f_range=EIS_exp.f)
     actual_error = best_error
-    
+    EEC_actual.prms_values[end] = best_error
 
     
     if plot_fit
