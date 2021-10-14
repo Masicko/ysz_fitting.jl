@@ -267,7 +267,7 @@ function set_bcs!(sys)
     boundary_dirichlet!(sys,iphi,Γ_YSZ, 0.0)
     boundary_dirichlet!(sys,iphi,Γ_LSM, data.bias + equilibrium_voltage(sys))
     # densities
-    @show data.y_YSZ
+    #@show data.y_YSZ
     boundary_dirichlet!(sys,iy,Γ_YSZ,data.y_YSZ)
     boundary_dirichlet!(sys,ie,Γ_LSM,data.e_LSM)    
 end
@@ -657,38 +657,7 @@ end
 
 
 
-function get_oxide_electric_flux(sys, solution)
-  dummy = fooNode(0)
-  X = sys.grid.components[XCoordinates]
-  
-  dummy.region = Ω_YSZ
-  
-  uk = solution[:, end - 1]
-  ul = solution[:, end]
-  ukl = cat(uk, ul, dims=2)
-  h = X[end] - X[end - 1]
-  flux_f = zeros(sys.physics.num_species)
-  
-  
-  flux!(flux_f, ukl, dummy, sys.physics.data)
-  return sys.physics.data.S_ellyt*(flux_f[iy]/h)*e0*(-2)*sys.physics.data.nC_YSZ*m_par*(1 - sys.physics.data.nu)
-end
 
-function get_electron_electric_flux(sys, solution)
-  dummy = fooNode(0)
-  X = sys.grid.components[XCoordinates]
-  
-  dummy.region = Ω_LSM
-  uk = solution[:, 1]
-  ul = solution[:, 2]
-  ukl = cat(uk, ul, dims=2)
-  h = X[2] - X[1]
-  flux_f = zeros(sys.physics.num_species)
-  
-  
-  flux!(flux_f, ukl, dummy, sys.physics.data)
-  return sys.physics.data.S_ellyt*sys.physics.data.ie_bulk_eqn_scaling^(-1)*(flux_f[ie]/h)*e0*(-1)*sys.physics.data.nC_LSM
-end
   
 function printfields(this)
     for name in fieldnames(typeof(this))
@@ -795,55 +764,75 @@ function equilibrium_solution(sys; testing=false)
     return inival
 end
 
-function stationary_update!(inival=nothing,sys=nothing)
+function stationary_update!(result, inival=nothing,sys=nothing)
     control=VoronoiFVM.NewtonControl()
     control.tol_absolute = 1e-11
     # control.max_iterations = 1000
     # control.damp_initial = 1e-8
     # control.damp_growth = 1.1
-    solve!(inival,inival,sys, control=control)
+    if inival != nothing
+      solve!(result, inival,sys, control=control)
+    else
+      if sys.physics.data.bias == 0.0
+        result = equilibrium_solution(sys)
+      else
+        solve!(result, equilibrium_solution(sys), sys, control=control)
+      end
+    end
 end
 
 function phi_stationary_sweep(sys, equilibrium_solution; bias_range=collect(0.01:0.01:1.0))
     eq_voltage = equilibrium_voltage(sys)
     df = DataFrame(bias=Float64[], solution=typeof(equilibrium_solution)[])
-    push!(df, 
-          Dict( :bias    => 0.0, 
-                :solution => equilibrium_solution
-            )
-        )
-    for dir in [1,-1]
+#     push!(df, 
+#           Dict( :bias    => 0.0, 
+#                 :solution => equilibrium_solution
+#             )
+#         )
+    begin
         result = deepcopy(equilibrium_solution)
+        old_solution = deepcopy(equilibrium_solution)
         for pbias in bias_range
-            update_problem!(sys, Dict(:bias => dir*pbias))
-            stationary_update!(result, sys)
+            update_problem!(sys, Dict(:bias => pbias))
+            stationary_update!(result, old_solution, sys)
             push!(df, 
-                  Dict( :bias    => dir*pbias, 
+                  Dict( :bias    => pbias, 
                         :solution => deepcopy(result)
                     ) 
                 )
+            old_solution = deepcopy(result)
         end
     end
     # 
-    sort!(df, :bias)
+    #sort!(df, :bias)
     return df
 end
 
-
-function test_IV(sys=Nothing; bound=1.0, step=0.01)
+function test_IV(sys=Nothing; bound=1.0, step=0.01, cF_list=[LSM_current, YSZ_current, YSZ_current_neg], plot_bool=false)
     if sys==Nothing
       sys = YSZ_LSM_model_ARO.sys()
     end
     eq = equilibrium_solution(sys)
-    df = phi_stationary_sweep(sys, eq) 
-    p = Plots.plot()
-    for cF in [LSM_current, YSZ_current, YSZ_current_neg]        
+    bias_range = vcat(
+                  collect(0.0 : step : bound),                  
+                  collect(-step : -step : -bound)
+                )                  
+    df = phi_stationary_sweep(sys, eq, bias_range=bias_range)
+    if plot_bool
+      @show "PLOT //////////////////////////////////"
+      p = Plots.plot()
+    end
+    for cF in cF_list        
         current(x) = cF(sys, x)[1]
         curcol = Symbol(cF)
         df[!, curcol] .= current.(df.solution)
-        Plots.plot!(p, df.bias, df[!,curcol], seriestype=:scatter, label=string(Symbol(cF)))
+        if plot_bool 
+          Plots.plot!(p, df.bias, df[!,curcol], seriestype=:scatter, label=string(Symbol(cF)))
+        end
     end
-    gui(p)
+    if plot_bool
+      gui(p)
+    end
     return df
 end
 
@@ -903,9 +892,45 @@ function impedance_sweep_test(sys=Nothing)
     gui(p)
 end
 
+function set_eta!(sys, eta)
+  sys.physics.data.bias = eta
+end
 
 
+function potential_step_response(sys, pstep=0.1; tstep = 1e-8, tend = 1.0e+3, Plotter=nothing)
+    zoom=1e-9
+    data = sys.physics.data
+    eqsol = equilibrium_solution(sys)
+    solOld = deepcopy(eqsol)
+    solNew = deepcopy(eqsol)
 
+    df = DataFrame(time=Float64[],bias=Float64[], solution=typeof(eqsol)[])
+    t = 0.0
+    push!(df, Dict(:time => t, :bias => data.bias, :solution => deepcopy(solNew)))
+
+    data.bias = pstep
+    set_bcs!(sys)
+    if !isnothing(Plotter)
+        grid = deepcopy(sys.grid)
+        lsm=10
+        ysz=20
+        ExtendableGrids.cellmask!(grid,[-1.0*zoom],[0.0],lsm, tol=1e-15)
+        ExtendableGrids.cellmask!(grid,[0.0],[1.0*zoom],ysz, tol=1e-15)
+        zoom_grid = subgrid(grid, [lsm,ysz])
+        visualizer = GridVisualize.GridVisualizer(layout=(1,1),resolution=(600,300),Plotter=Plotter,fignum=1);
+        GridVisualize.scalarplot!(visualizer[1,1], zoom_grid, view(eqsol[iy,:], zoom_grid), title="($t)", show=true)   
+    end
+    while t < tend
+        t += tstep
+        solve!(solNew, solOld, sys, tstep=tstep)
+        push!(df, Dict(:time => t, :bias => data.bias, :solution => deepcopy(solNew)))
+        solOld .= solNew
+        tstep > Inf ? tstep = 9e-4 : tstep *= 1.3
+        !isnothing(Plotter) ? GridVisualize.scalarplot!(visualizer[1,1], zoom_grid, view(solNew[iy,:], zoom_grid), title="($t)", show = true) : Plotter=nothing 
+    end
+    !isnothing(Plotter) ? GridVisualize.scalarplot!(visualizer[1,1], zoom_grid, view(eqsol[iy,:] - solNew[iy,:], zoom_grid), title="($t)", show=true, clear=true, color=:red)   : Plotter=nothing 
+    return df
+end
 
 
 
@@ -932,7 +957,7 @@ end
 
 
 ### Electric currents
- ################# LSM ############
+################# LSM ############
 function LSM_current(sys, U)
     factory = VoronoiFVM.TestFunctionFactory(sys)
     tLSM = testfunction(factory, Γ, Γ_LSM)
@@ -951,30 +976,41 @@ function LSM_transient(sys, Unew, Uold, tstep)
     return sys.physics.data.S_ellyt.*(prefactor*trans[ie] + (stdyNew[iphi] - stdyOld[iphi])/tstep)
 end
 
-function LSM_testing_current(sys)
+function LSM_testing_current_functional(sys)
     factory=VoronoiFVM.TestFunctionFactory(sys)
     measurement_testfunction=VoronoiFVM.testfunction(factory, Γ, Γ_LSM)
     data = sys.physics.data
-    ypf = sys.physics.data.ie_bulk_eqn_scaling^(-1)*e0*ze*sys.physics.data.nC_LSM
+    ypf = (-1)*(-1)*sys.physics.data.ie_bulk_eqn_scaling^(-1)*e0*ze*sys.physics.data.nC_LSM
+    
     # transient part of measurement functional 
     function meas_stdy(meas, u)
       u=reshape(u,sys)
-      meas[1]=-ypf*VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iy]
+      meas[1]= ypf*VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[ie]
       nothing
     end
     # steady part of measurement functional
     function meas_tran(meas, u)
       u=reshape(u,sys)
       meas[1]=       
-        -ypf*(VoronoiFVM.integrate_tran(sys,measurement_testfunction,u)[iy])
-        + 
+        ypf*(VoronoiFVM.integrate_tran(sys,measurement_testfunction,u)[ie])
+        +
         VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iphi]        
       nothing      
     end
     return meas_stdy, meas_tran
 end
 
- ############ YSZ #############
+function LSM_testing_current(sys, U)
+  formal_meas_stdy = [1.]
+  formal_meas_tran = [1.]
+  (meas_stdy_func, meas_tran_func) = LSM_testing_current_functional(sys)
+  meas_stdy_func(formal_meas_stdy, U)
+  meas_tran_func(formal_meas_tran, U)
+  return sys.physics.data.S_ellyt.*(formal_meas_stdy[1], formal_meas_tran[1])
+end
+
+
+############ YSZ #############
 function YSZ_current(sys, U)
     data = sys.physics.data
     factory = VoronoiFVM.TestFunctionFactory(sys)
@@ -1002,28 +1038,37 @@ function YSZ_trans_neg(sys, Unew, Uold, tstep)
     return (-1 * sys.physics.data.S_ellyt) .* (prefactor*trans[iy] + (stdyNew[iphi] - stdyOld[iphi])/tstep)
 end
  
-function YSZ_testing_current(sys)
+function YSZ_testing_current_functional(sys)
     factory=VoronoiFVM.TestFunctionFactory(sys)
     measurement_testfunction=VoronoiFVM.testfunction(factory, Γ, Γ_YSZ)
     data = sys.physics.data
-    ypf = e0*za*(1.0 - data.nu)*m_par*data.nC_YSZ
+    ypf = -e0*za*(1.0 - data.nu)*m_par*data.nC_YSZ
     # transient part of measurement functional 
     function meas_stdy(meas, u)
       u=reshape(u,sys)
-      meas[1]=-ypf*VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iy]
+      meas[1]=ypf*VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iy]
       nothing
     end
     # steady part of measurement functional
     function meas_tran(meas, u)
       u=reshape(u,sys)
       meas[1]=       
-        -ypf*(VoronoiFVM.integrate_tran(sys,measurement_testfunction,u)[iy])
+        ypf*(VoronoiFVM.integrate_tran(sys,measurement_testfunction,u)[iy])
         + 
         VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iphi]        
       nothing      
     end
     return meas_stdy, meas_tran
-end 
+end
+
+function YSZ_testing_current(sys, U)
+  formal_meas_stdy = [1.]
+  formal_meas_tran = [1.]
+  (meas_stdy_func, meas_tran_func) = YSZ_testing_current_functional(sys)
+  meas_stdy_func(formal_meas_stdy, U)
+  meas_tran_func(formal_meas_tran, U)
+  return sys.physics.data.S_ellyt.*(formal_meas_stdy[1], formal_meas_tran[1])
+end
  
  ########## LEGACY ############
 # return (steady, trans)
@@ -1093,6 +1138,41 @@ function legacy_current_transient(sys, U)
                       - dphiB
                     )
 end
+ 
+ 
+function get_oxide_electric_flux(sys, solution)
+  dummy = fooNode(0)
+  X = sys.grid.components[XCoordinates]
+  
+  dummy.region = Ω_YSZ
+  
+  uk = solution[:, end - 1]
+  ul = solution[:, end]
+  ukl = cat(uk, ul, dims=2)
+  h = X[end] - X[end - 1]
+  flux_f = zeros(sys.physics.num_species)
+  
+  
+  flux!(flux_f, ukl, dummy, sys.physics.data)
+  return sys.physics.data.S_ellyt*(flux_f[iy]/h)*e0*(-2)*sys.physics.data.nC_YSZ*m_par*(1 - sys.physics.data.nu)
+end
+
+function get_electron_electric_flux(sys, solution)
+  dummy = fooNode(0)
+  X = sys.grid.components[XCoordinates]
+  
+  dummy.region = Ω_LSM
+  uk = solution[:, 1]
+  ul = solution[:, 2]
+  ukl = cat(uk, ul, dims=2)
+  h = X[2] - X[1]
+  flux_f = zeros(sys.physics.num_species)
+  
+  
+  flux!(flux_f, ukl, dummy, sys.physics.data)
+  return sys.physics.data.S_ellyt*sys.physics.data.ie_bulk_eqn_scaling^(-1)*(flux_f[ie]/h)*e0*(-1)*sys.physics.data.nC_LSM
+end 
+ 
  
  
 function tpb_view(sys, solution)

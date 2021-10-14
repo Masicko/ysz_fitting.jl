@@ -126,7 +126,7 @@ function run_new(;physical_model_name,
             
       eq_solution = model_symbol.equilibrium_solution(sys)            
       
-      # I-V curve ##########   ########################################
+      # # # # # # # # # # I-V curve # # # # # # # # # # # # #
 # #       begin
 # #         bias_range = collect(0.0 : 0.05 : 0.10)
 # #         
@@ -147,171 +147,88 @@ function run_new(;physical_model_name,
 # #         end
 # #       end
 
-
-      
-      
-# #       begin    # equilibrium solution testing
-# #           @show "TU-------------------"
-# #           
-# #           println("I-YSZ    = ",model_symbol.YSZ_current_neg(sys, eq_solution))
-# #           println("I-LSM    = ",model_symbol.LSM_current(sys, eq_solution))
-# #           println("I-legacy = ",model_symbol.legacy_current(sys, eq_solution))
-# #           println("I_OXIDE  = ",model_symbol.get_oxide_electric_flux(sys, eq_solution))
-# #           println("I_elect  = ",model_symbol.get_electron_electric_flux(sys, eq_solution))
-# #           
-# #           model_symbol.plotsolution(sys, eq_solution, zoom=5.0e-9)
-# #           return
-# #       end
-      
-#      model_symbol.phi_stationary_sweep(sys, eq_solution)
-# # #           for name in fieldnames(typeof(sys_orig))            
-# # #             @show " -- ok -- $(name)"
-# # #             if getfield(sys_orig,name) != getfield(sys,name)
-# # #               
-# # #               @printf("%8s = ",name)
-# # #               #@show getfield(sys_orig,name), getfield(sys,name)
-# # #               @show "AAAAAAAAAA"
-# # #             end
-# # #           end
-
-
-function potential_step_response(sys, pstep=0.1; Plotter=nothing)
-    zoom=1e-9
-    data = sys.physics.data
-    eqsol = model_symbol.equilibrium_solution(sys)
-    solOld = deepcopy(eqsol)
-    solNew = deepcopy(eqsol)
-
-    df = DataFrame(time=Float64[],bias=Float64[], solution=typeof(eqsol)[])
-    t = 0.0
-    push!(df, Dict(:time => t, :bias => data.bias, :solution => deepcopy(solNew)))
-
-    data.bias = pstep
-    model_symbol.set_bcs!(sys)
-    if !isnothing(Plotter)
-        grid = deepcopy(sys.grid)
-        lsm=10
-        ysz=20
-        ExtendableGrids.cellmask!(grid,[-1.0*zoom],[0.0],lsm, tol=1e-15)
-        ExtendableGrids.cellmask!(grid,[0.0],[1.0*zoom],ysz, tol=1e-15)
-        zoom_grid = subgrid(grid, [lsm,ysz])
-        visualizer = GridVisualize.GridVisualizer(layout=(1,1),resolution=(600,300),Plotter=Plotter,fignum=1);
-        GridVisualize.scalarplot!(visualizer[1,1], zoom_grid, view(eqsol[iy,:], zoom_grid), title="($t)", show=true)   
-    end
-    tstep = 1e-8
-    tend = 1.0e+3
-    while t < tend
-        t += tstep
-        model_symbol.solve!(solNew, solOld, sys, tstep=tstep)
-        push!(df, Dict(:time => t, :bias => data.bias, :solution => deepcopy(solNew)))
-        solOld .= solNew
-        tstep > Inf ? tstep = 9e-4 : tstep *= 1.3
-        !isnothing(Plotter) ? GridVisualize.scalarplot!(visualizer[1,1], zoom_grid, view(solNew[iy,:], zoom_grid), title="($t)", show = true) : Plotter=nothing 
-    end
-    !isnothing(Plotter) ? GridVisualize.scalarplot!(visualizer[1,1], zoom_grid, view(eqsol[iy,:] - solNew[iy,:], zoom_grid), title="($t)", show=true, clear=true, color=:red)   : Plotter=nothing 
-    return df
-end
+      function evaluate_total_current(generic_current_funcion, U_old, U_new, t_step)
+        (C_old_steady, C_old_trans) = generic_current_funcion(sys, U_old)
+        (C_new_steady, C_new_trans) = generic_current_funcion(sys, U_new)
+          
+        return (C_old_steady + C_new_steady)/2 + (C_new_trans - C_old_trans)/t_step
+      end
       
       if EIS_IS
         if bias == 0
-          biased_steadystate_solution = eq_solution         
+          biased_steadystate_solution = eq_solution 
+          @show biased_steadystate_solution
         else
-          biased_steadystate_solution = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=[0.0, bias])[end][!, :solution]
+          df = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=collect(0.05 : sign(bias)*0.05 : bias))          
+          @show df
+          biased_steadystate_solution = last(df)[:solution]          
         end
-        
-        # ####### # # # # attempt
-        meas_stdy = [1.0,2.0]
-        meas_tran = [1.0,2.0]
-        model_symbol.LSM_testing_current(sys)[1](meas_stdy, biased_steadystate_solution)
-        model_symbol.LSM_testing_current(sys)[2](meas_tran, biased_steadystate_solution)
-        @show "LSM", (meas_stdy[1], meas_tran[1])
-        
-        model_symbol.YSZ_testing_current(sys)[1](meas_stdy, biased_steadystate_solution)
-        model_symbol.YSZ_testing_current(sys)[2](meas_tran, biased_steadystate_solution)
-        @show "YSZ", (meas_stdy[1], meas_tran[1])
-        
-        
-        println("I-YSZ    = ",model_symbol.YSZ_current_neg(sys, biased_steadystate_solution))
-        println("I-LSM    = ",model_symbol.LSM_current(sys, biased_steadystate_solution))
-        println("I-legacy = ",model_symbol.legacy_current(sys, biased_steadystate_solution))
-        println("I_OXIDE  = ",model_symbol.get_oxide_electric_flux(sys, biased_steadystate_solution))
-        println("I_elect  = ",model_symbol.get_electron_electric_flux(sys, biased_steadystate_solution))
-        return
-        
-        p = Plots.plot(ratio=:equal)
-        for cF in [model_symbol.YSZ_current, model_symbol.LSM_current]
-            df = model_symbol.impedance_sweep(sys, biased_steadystate_solution,                                 
-                                  currentF=cF,
-                                  functional_current=false,
-                                  
-                                  #currentF=LSM_current,                                              
-                                  )
-            Plots.plot!(p, real.(df.Z), -imag.(df.Z), seriestype=:scatter, label=string(Symbol(cF)))
-        end
-        gui(p)
-        return
       
-        function evaluate_total_current(generic_current_funcion, U_old, U_new, t_step)
-          (C_old_steady, C_old_trans) = generic_current_funcion(sys, U_old)
-          (C_new_steady, C_new_trans) = generic_current_funcion(sys, U_new)
+        
+        # # # # # # steadystate test # # # # # # #
+#         begin      
+#           println("YSZ_new  = ",model_symbol.YSZ_testing_current(sys, biased_steadystate_solution))    
+#           println("LSM_new  = ",model_symbol.LSM_testing_current(sys, biased_steadystate_solution))              
+#                                     
+#           println("I-YSZ    = ",model_symbol.YSZ_current_neg(sys, biased_steadystate_solution))
+#           println("I-LSM    = ",model_symbol.LSM_current(sys, biased_steadystate_solution))
+#           println("I-legacy = ",model_symbol.legacy_current(sys, biased_steadystate_solution))
+#           println("I_OXIDE  = ",model_symbol.get_oxide_electric_flux(sys, biased_steadystate_solution))
+#           println("I_elect  = ",model_symbol.get_electron_electric_flux(sys, biased_steadystate_solution))          
+#         end
+        
+        
+        # # # # # potential step response # # # # # # #
+        begin
+          tstep = 1e-8
+          df_sol = model_symbol.potential_step_response(sys, tstep = tstep)[!, :solution]
+          @show length(df_sol)
           
-          return (C_old_steady + C_new_steady)/2 + (C_new_trans - C_old_trans)/t_step
-        end
+          #for i in collect(3 : 1 : length(df_sol))
+          for i in collect(20 : 10 : 60)
+            model_symbol.plotsolution(sys, df_sol[i], zoom=5.0e-9)
+            
+            println("I-YSZ          = ", evaluate_total_current(model_symbol.YSZ_current_neg, df_sol[i-1], df_sol[i], tstep))
+            println("I-LSM          = ", evaluate_total_current(model_symbol.LSM_current, df_sol[i-1], df_sol[i], tstep))
+            println("I-YSZ_testing  = ", evaluate_total_current(model_symbol.YSZ_testing_current, df_sol[i-1], df_sol[i], tstep))
+            println("I-LSM_testing  = ", evaluate_total_current(model_symbol.LSM_testing_current, df_sol[i-1], df_sol[i], tstep))
+            #println("I-legacy = ",model_symbol.legacy_current(sys, df_sol[1]))
+            pause(5)
+          end
+          return
+        end        
+
+#         # # # # # # impedance test # # # # # # # # # 
+#         begin
+#           p = Plots.plot(ratio=:equal)
+#           for cF in [ 
+#                       model_symbol.LSM_current,
+#                       model_symbol.YSZ_current_neg
+#                       ] 
+#                       #model_symbol.YSZ_testing_current, model_symbol.LSM_testing_current]
+#               df = model_symbol.impedance_sweep(sys, biased_steadystate_solution,                                 
+#                                     currentF=cF,                                                                    
+#                                     #currentF=LSM_current,                                              
+#                                     )
+#               Plots.plot!(p, real.(df.Z), -imag.(df.Z), seriestype=:scatter, label=string(Symbol(cF)))
+#           end
+#           gui(p)
+#           return
+#         end
         
-        
-        
-# # #         begin
-# # #               df_sol = potential_step_response(sys)[!, :solution]
-# # #               
-# # #               for i in [2, length(df_sol)]
-# # #                 model_symbol.plotsolution(sys, df_sol[i], zoom=5.0e-9)
-# # #                 println("I-YSZ    = ", evaluate_total_current(model_symbol.YSZ_current_neg, df_sol[i-1], df_sol[i], 1e-8))
-# # #                 println("I-LSM    = ", evaluate_total_current(model_symbol.LSM_current, df_sol[i-1], df_sol[i], 1e-8))
-# # #                 println("I-legacy = ", evaluate_total_current(model_symbol.legacy_current, df_sol[i-1], df_sol[i], 1e-8))
-# # #                 #println("I-legacy = ",model_symbol.legacy_current(sys, df_sol[1]))
-# # #                 pause(5)
-# # #               end
-# # #               return
-# # #         end
-      
-#         phi_neg, phi_gamma, phi_pos = model_symbol.phi_view(sys, biased_steadystate_solution)
-#         println(" <><><><> zeta = E_LSM/E_YSZ = ", (phi_neg - phi_gamma)/(phi_gamma - phi_pos))
-#         
-#         bias_range = [0.0, 0.05, 0.1]
-# #         #bias_range = [0.05]
-#         biased_steadystate_solution = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=bias_range)[!, :solution]
-#         #for (i, bias) in enumerate(bias_range)
-#         for i in 1:length(bias_range)  
-#           
-#           #model_symbol.plotsolution(sys, biased_steadystate_solution, zoom=5.0e-9)
-#           println(" ---------------- ")
-#           println("I-YSZ    = ",model_symbol.YSZ_current_neg(sys, biased_steadystate_solution[i]))
-#           println("I-LSM    = ",model_symbol.LSM_current(sys, biased_steadystate_solution[i]))
-#           println("I-legacy = ",model_symbol.legacy_current(sys, biased_steadystate_solution[i]))
-#           println("I_OXIDE  = ",model_symbol.get_oxide_electric_flux(sys, biased_steadystate_solution[i]))
-#           println("I_elect  = ",model_symbol.get_electron_electric_flux(sys, biased_steadystate_solution[i]))
-#           
-#           #pause(3)
-#         end                
-        
-        return model_symbol.impedance_sweep(sys, biased_steadystate_solution, f_range=model_symbol.geometric(Float64.(f_range)...),
-          currentF=model_symbol.YSZ_current_neg
-          #currentF=model_symbol.LSM_current
-          #currentF=model_symbol.legacy_current
-          )        
       end
       if voltammetry && fast_CV_mode
-        bias_range_sorted = [upp_bound_eta * (step/sample) for step in 1:sample]              
-        @show bias_range_sorted
         
-        solution_df = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=bias_range_sorted)
-        #solution_df = model_symbol.phi_stationary_sweep(sys, eq_solution)        
-      
-      @show solution_df[!, :solution]
+        df = model_symbol.test_IV(sys, bound=upp_bound_eta, step=upp_bound_eta/sample, plot_bool=true,
+                                  cF_list=[ model_symbol.LSM_current, 
+                                            model_symbol.LSM_testing_current, 
+                                            model_symbol.YSZ_testing_current,
+                                            model_symbol.YSZ_current_neg]
+                    )
+        current_col = deepcopy(df[!, :YSZ_testing_current])
         
-        I_range_sorted = [model_symbol.LSM_current(sys, sol)[1] for sol in solution_df[!, :solution]]        
-        @show I_range_sorted
-        return "aa"
+        
+        return DataFrame(U = [], I = []) ##### TODO !!! ! ! !
       end
     end
     
@@ -383,8 +300,19 @@ end
       PyPlot.grid()
     end
     
-    function set_eta(eta)
-      sys.boundary_values[index_driving_species, 1] = parameters.phi_eq + eta
+    function set_eta(eta)      
+      if (
+          physical_model_name == "ysz_model_GAS_LoMA" ||
+          physical_model_name == "ysz_model_GAS_LoMA_shared" ||
+          physical_model_name == "ysz_model_GAS_LoMA_Temperature" ||
+          physical_model_name == "ysz_model_GAS_LoMA_generic"
+          )
+        sys.boundary_values[index_driving_species, 1] = parameters.phi_eq + eta
+      else
+        model_symbol.set_eta!(sys, eta)
+        
+        #sys.physics.data.bias = eta
+      end
 #       if extended_LSM_domain_mode
 #         # E^LSM =  zeta*E^YSZ
 #         # but more important is ->     index_driving_species = iphiLSM
@@ -492,8 +420,6 @@ end
     # update the "computed" values in parameters
     parameters = model_symbol.YSZParameters_update!(parameters)
 
-    
-    
     
     #@show parameters.yB
     #@show parameters.DD
