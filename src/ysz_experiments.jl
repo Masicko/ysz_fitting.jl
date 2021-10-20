@@ -156,11 +156,9 @@ function run_new(;physical_model_name,
       
       if EIS_IS
         if bias == 0
-          biased_steadystate_solution = eq_solution 
-          @show biased_steadystate_solution
+          biased_steadystate_solution = eq_solution           
         else
-          df = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=collect(0.05 : sign(bias)*0.05 : bias))          
-          @show df
+          df = model_symbol.phi_stationary_sweep(sys, eq_solution, bias_range=collect(0.05 : sign(bias)*0.05 : bias))                    
           biased_steadystate_solution = last(df)[:solution]          
         end
       
@@ -178,43 +176,43 @@ function run_new(;physical_model_name,
 #         end
         
         
-        # # # # # potential step response # # # # # # #
-        begin
-          tstep = 1e-8
-          df_sol = model_symbol.potential_step_response(sys, tstep = tstep)[!, :solution]
-          @show length(df_sol)
-          
-          #for i in collect(3 : 1 : length(df_sol))
-          for i in collect(20 : 10 : 60)
-            model_symbol.plotsolution(sys, df_sol[i], zoom=5.0e-9)
-            
-            println("I-YSZ          = ", evaluate_total_current(model_symbol.YSZ_current_neg, df_sol[i-1], df_sol[i], tstep))
-            println("I-LSM          = ", evaluate_total_current(model_symbol.LSM_current, df_sol[i-1], df_sol[i], tstep))
-            println("I-YSZ_testing  = ", evaluate_total_current(model_symbol.YSZ_testing_current, df_sol[i-1], df_sol[i], tstep))
-            println("I-LSM_testing  = ", evaluate_total_current(model_symbol.LSM_testing_current, df_sol[i-1], df_sol[i], tstep))
-            #println("I-legacy = ",model_symbol.legacy_current(sys, df_sol[1]))
-            pause(5)
-          end
-          return
-        end        
-
-#         # # # # # # impedance test # # # # # # # # # 
+#         # # # # # potential step response # # # # # # #
 #         begin
-#           p = Plots.plot(ratio=:equal)
-#           for cF in [ 
-#                       model_symbol.LSM_current,
-#                       model_symbol.YSZ_current_neg
-#                       ] 
-#                       #model_symbol.YSZ_testing_current, model_symbol.LSM_testing_current]
-#               df = model_symbol.impedance_sweep(sys, biased_steadystate_solution,                                 
-#                                     currentF=cF,                                                                    
-#                                     #currentF=LSM_current,                                              
-#                                     )
-#               Plots.plot!(p, real.(df.Z), -imag.(df.Z), seriestype=:scatter, label=string(Symbol(cF)))
+#           tstep = 1e-10
+#           df_sol = model_symbol.potential_step_response(sys, -0.1, tstep = tstep)[!, :solution]                                  
+#             
+#           #for i in collect(3 : 1 : length(df_sol))
+#           for i in collect(20 : 10 : length(df_sol))
+#             model_symbol.plotsolution(sys, df_sol[i], zoom=5.0e-9)
+#             
+#             println("I-YSZ          = ", evaluate_total_current(model_symbol.YSZ_current_neg, df_sol[i-1], df_sol[i], tstep))
+#             println("I-LSM          = ", evaluate_total_current(model_symbol.LSM_current, df_sol[i-1], df_sol[i], tstep))
+#             println("I-YSZ_testing  = ", evaluate_total_current(model_symbol.YSZ_testing_current, df_sol[i-1], df_sol[i], tstep))
+#             println("I-LSM_testing  = ", evaluate_total_current(model_symbol.LSM_testing_current, df_sol[i-1], df_sol[i], tstep))
+#             #println("I-legacy = ",model_symbol.legacy_current(sys, df_sol[1]))
+#             pause(5)
 #           end
-#           gui(p)
 #           return
-#         end
+#         end        
+
+        # # # # # # impedance test # # # # # # # # # 
+        begin
+          #p = Plots.plot(ratio=:equal)
+          for cF in [ 
+                      #model_symbol.LSM_current,
+                      model_symbol.YSZ_current_neg
+                      #model_symbol.YSZ_current_neg
+                      ] 
+                      #model_symbol.YSZ_testing_current, model_symbol.LSM_testing_current]
+              df = model_symbol.impedance_sweep(sys, biased_steadystate_solution,                                 
+                                    currentF=cF,                                                                    
+                                    #currentF=LSM_current,                                              
+                                    )
+              #Plots.plot!(p, real.(df.Z), -imag.(df.Z), seriestype=:scatter, label=string(Symbol(cF)))
+          end
+          #gui(p)
+          return df
+        end
         
       end
       if voltammetry && fast_CV_mode

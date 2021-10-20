@@ -919,7 +919,7 @@ function testing_current(sys)
     function meas_tran(meas, u)
       u=reshape(u,sys)
       meas[1]=       
-        -ypf*(VoronoiFVM.integrate_tran(sys,measurement_testfunction,u)[iy])
+        -ypf*1e6*(VoronoiFVM.integrate_tran(sys,measurement_testfunction,u)[iy])
         + 
         VoronoiFVM.integrate_stdy(sys,measurement_testfunction,u)[iphi]        
       nothing      

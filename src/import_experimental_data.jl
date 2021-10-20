@@ -296,6 +296,9 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
     end
     fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/11 YSZ 111 - Au-Au/mereni 4 pm2V/$(TC) C/$(backward_string)EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")    
 
+  elseif data_set=="cyc_HebbWagner_111_GOLD_6_4_cycles"
+    fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/12 YSZ 111 - Au-Au LESTENA/mereni 4 cyklovani +-0.5 V/EIS jen jako poradi/$(TC) C/111-Au-Au_$(TC)C_20O2_$(Int(bias)).z")
+  
   ##
   
 #   elseif data_set=="HebbWagner_111_GOLD_5"
