@@ -1524,7 +1524,7 @@ function test_R3_stealing()
   println("TODO!!!")
 end
 
-function get_bias_from_chrono(bias_idx, bias_step, bias_return_value)
+function get_bias_from_chrono(bias_idx, bias_step, bias_return_value; num_cycles=1, take_each=1)
     bias_digit_precision = 3
     bias_epsilon = 10e-5
     
@@ -1532,6 +1532,12 @@ function get_bias_from_chrono(bias_idx, bias_step, bias_return_value)
     dir = 1
     bias_value = 0.0
         
+    if take_each==2    
+      bias_idx =   bias_idx/2 + 0.5*mod(bias_idx, 2) - div(bias_idx-1, 82)
+    else
+      bias_idx = bias_idx    
+    end
+    
     return_counter = 0
     for i in 1:(bias_idx - 1)    
       bias_value = round(bias_value + dir*bias_step, digits=bias_digit_precision)
@@ -1545,7 +1551,7 @@ function get_bias_from_chrono(bias_idx, bias_step, bias_return_value)
         bias_value = round(bias_value + 2*bias_step, digits=bias_digit_precision)
         dir = 1
       end
-      if return_counter > 1 && bias_value > 0        
+      if return_counter > (num_cycles*2 - 1) && bias_value > 0        
         bias_value = Inf
         break
       end

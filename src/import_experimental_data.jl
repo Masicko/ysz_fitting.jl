@@ -296,9 +296,9 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
     end
     fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/11 YSZ 111 - Au-Au/mereni 4 pm2V/$(TC) C/$(backward_string)EIS_$(bias)DC_10ac$(ocp_token)_Rp0$(pO2_2_digits).z")    
 
-  elseif data_set=="cyc_HebbWagner_111_GOLD_6_4_cycles"
+  elseif data_set=="cyc_HebbWagner_111_GOLD_8_4_cycles"
     fNAME=string("../snehurka/experimental_data_PSS/Hebb-Wagner_monokrystaly/12 YSZ 111 - Au-Au LESTENA/mereni 4 cyklovani +-0.5 V/EIS jen jako poradi/$(TC) C/111-Au-Au_$(TC)C_20O2_$(Int(bias)).z")
-  
+    
   ##
   
 #   elseif data_set=="HebbWagner_111_GOLD_5"
@@ -324,9 +324,9 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
     elseif plane == "110"
       total_order_str = "10"
     elseif plane == "111"
-      if ordering_number == '5'
+      if ordering_number in ['5', '6', '7']
         total_order_str = "12"
-      else
+      else              
         total_order_str = "11"
       end
     end
@@ -349,6 +349,13 @@ function import_EIStoDataFrame(;TC, pO2, bias, data_set="MONO_110", extra_tokens
         bias_return_value = 2.0
       elseif ordering_number == '5'
         cell_specification = " LESTENA"
+      elseif ordering_number == '6'
+        cell_specification = " LESTENA"
+        sequence_str = "mereni 2/"
+      elseif ordering_number == '7'
+        cell_specification = " LESTENA" 
+        sequence_str = "mereni 3 do +- 2V/"
+        bias_return_value = 2.0
       end
     end
     
