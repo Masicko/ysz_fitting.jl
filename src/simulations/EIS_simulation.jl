@@ -351,13 +351,15 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
         loc_SIM = EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)[1]
         typical_plot_exp(loc_SIM, EIS_exp_NEW, "")       
         #
-        if save_to_folder!=Nothing
+        if save_to_folder!=Nothing 
           if occursin("src", pwd()[end-3 : end])
             save_dir = "../data/experimental/"
           elseif occursin("ysz", pwd()[end-3 : end])
             save_dir = "./data/experimental/"
-          else
-            println("ERROR: please, go to directory \"ysz\" or \"ysz/src\"")
+          elseif occursin("les", pwd()[end-3 : end])
+            save_dir = "../data/experimental/"
+          else          
+            println("ERROR: please, go to directory \"ysz\" or \"ysz/src\" or \"ysz/examples\"")
             return
           end
           save_file_prms(loc_SIM, EIS_exp_NEW, "$(save_dir)$(save_to_folder)", [], [], []; mode="exp")
