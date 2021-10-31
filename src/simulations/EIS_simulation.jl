@@ -3,6 +3,7 @@ using DataFrames
 using PyPlot
 
 
+include("../my_GIF_maker.jl")
 
 const EIS_standard_figure_num = 6
 const EIS_default_physical_model_name = "ysz_model_GAS_LoMA_Temperature"
@@ -134,7 +135,7 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
   
   if occursin("leg", SIM.plot_option) || SIM.plot_legend
     sLEG = subplot(num_rows + 23)
-    plot([], marker_style, label = my_label)
+    PyPlot.plot([], marker_style, label = my_label)
     PyPlot.axis("off") 
     legend(loc="best")
   end
@@ -144,7 +145,7 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     title("Nyquist plot")
     xlabel("Re\$(Z) \\ [\\Omega]\$")
     ylabel("-Im\$(Z) \\ [\\Omega]\$")
-    plot(real(EIS_df.Z), -imag(EIS_df.Z), marker_style, label = my_label)
+    PyPlot.plot(real(EIS_df.Z), -imag(EIS_df.Z), marker_style, label = my_label)
 #     if !(my_label == "") && SIM.plot_legend
 #         legend(loc="best")
 #     end    
@@ -158,12 +159,12 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
     s2 = subplot(num_rows + 22)
     title("Bode plot: Re vs log f \$(\$Hz\$)\$")
     ylabel("Re\$(Z) \\ [\\Omega]\$")
-    plot(log10.(EIS_df.f), real(EIS_df.Z), marker_style, label = my_label)
+    PyPlot.plot(log10.(EIS_df.f), real(EIS_df.Z), marker_style, label = my_label)
       
     s3 = subplot(num_rows + 24)
     title("Bode plot: - Im vs log f \$(\$Hz\$)\$")
     ylabel("-Im\$(Z) \\ [\\Omega]\$")
-    plot(log10.(EIS_df.f), -imag(EIS_df.Z), marker_style, label = my_label)
+    PyPlot.plot(log10.(EIS_df.f), -imag(EIS_df.Z), marker_style, label = my_label)
   end
   
   if SIM.use_DRT
@@ -203,18 +204,18 @@ function typical_plot_general(SIM::EIS_simulation, EIS_df, my_label, additional_
   else    
     if occursin("DRT", SIM.plot_option)
       s5 = subplot(num_rows + 25)
-      plot([])
+      PyPlot.plot([])
     elseif occursin("Rtau", SIM.plot_option)
       s5 = subplot(num_rows + 25)
-      plot([])
+      PyPlot.plot([])
     elseif occursin("Rf", SIM.plot_option)
       s5 = subplot(num_rows + 25)
-      plot([])
+      PyPlot.plot([])
     end
     
     if occursin("RC", SIM.plot_option)
       s4 = subplot(num_rows + 26)
-      plot([])
+      PyPlot.plot([])
     end
     return
   end
@@ -321,15 +322,31 @@ function EIS_test_checknodes_range(f_range=EIS_get_shared_f_range())
 end
 
 
-function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_option="Nyq Bode Rtau RC", use_checknodes=false, plot_legend=true, fig_num=12, DRT_control=DRT_control_struct(), use_DRT=true, save_to_folder=Nothing,                             
+
+
+
+
+
+
+
+
+function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_option="Nyq Bode Rtau RC", use_checknodes=false, plot_legend=true, fig_num=12, DRT_control=DRT_control_struct(), use_DRT=true, save_to_folder=Nothing, graph_3D=false,                            
                   EIS_preprocessing_control = EIS_preprocessing_control(
                                   f_interval=Nothing, 
                                   add_inductance=0,
                                   trim_inductance=false, 
                                   outlayers_threshold=5.5,                                    
                                   use_DRT=false, DRT_control=DRT_control_struct()
-                  )
-          )  
+                  ),
+                  graph_3D_control = nothing
+          ) 
+  graph_3D = (typeof(graph_3D_control) == my_GIF_maker.graph_3D_control)
+  if graph_3D
+    x_ranges_storage = []
+    y_ranges_storage = []
+    z_ranges_storage = []
+  end
+          
   EIS_exp = DataFrame()
   EIS_exp_NEW = DataFrame()
   for TC_item in TC
@@ -349,7 +366,13 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
         EIS_exp_NEW = EIS_preprocessing(EIS_exp, EIS_preprocessing_control)
         #  
         loc_SIM = EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)[1]
-        typical_plot_exp(loc_SIM, EIS_exp_NEW, "")       
+        if graph_3D
+          push!(x_ranges_storage, deepcopy(real(EIS_exp_NEW[!, :Z]) ))
+          push!(y_ranges_storage, deepcopy((-1).*imag(EIS_exp_NEW[!, :Z]) ))
+          push!(z_ranges_storage, bias_item)
+        else
+          typical_plot_exp(loc_SIM, EIS_exp_NEW, "")      
+        end
         #
         if save_to_folder!=Nothing 
           if occursin("src", pwd()[end-3 : end])
@@ -366,6 +389,11 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
         end
       end
     end
+  end
+  if graph_3D
+    graph_3D_control.z_ranges = z_ranges_storage
+    my_GIF_maker.plot_2D_sequence_in_3D(x_ranges_storage, y_ranges_storage, graph_3D_control=graph_3D_control
+    )
   end
   return EIS_exp_NEW
 end
