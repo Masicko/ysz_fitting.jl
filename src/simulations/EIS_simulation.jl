@@ -338,15 +338,34 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
                                   outlayers_threshold=5.5,                                    
                                   use_DRT=false, DRT_control=DRT_control_struct()
                   ),
-                  graph_3D_control = nothing
-          ) 
-  graph_3D = (typeof(graph_3D_control) == my_GIF_maker.graph_3D_control)
-  if graph_3D
+                  graph_3D_control = nothing,
+                  gif_maker_control = nothing
+          )
+  postprocessing_bool = (
+                    (typeof(graph_3D_control) == my_GIF_maker.graph_3D_control) || 
+                    (typeof(gif_maker_control) == my_GIF_maker.gif_maker_control)
+                  )
+  if postprocessing_bool
     x_ranges_storage = []
     y_ranges_storage = []
     z_ranges_storage = []
+    legend_ranges_storage = []
   end
-          
+   
+  if save_to_folder!=Nothing
+    if occursin("src", pwd()[end-3 : end])
+      save_dir = "../data/experimental/"
+    elseif occursin("ysz", pwd()[end-3 : end])
+      save_dir = "./data/experimental/"
+    elseif occursin("les", pwd()[end-3 : end])
+      save_dir = "../data/experimental/"
+    else          
+      println("ERROR: please, go to directory \"ysz\" or \"ysz/src\" or \"ysz/examples\"")
+      return
+    end
+    save_dir = "$(save_dir)$(save_to_folder)/"
+  end
+   
   EIS_exp = DataFrame()
   EIS_exp_NEW = DataFrame()
   for TC_item in TC
@@ -366,34 +385,36 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
         EIS_exp_NEW = EIS_preprocessing(EIS_exp, EIS_preprocessing_control)
         #  
         loc_SIM = EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)[1]
-        if graph_3D
+        if postprocessing_bool
           push!(x_ranges_storage, deepcopy(real(EIS_exp_NEW[!, :Z]) ))
           push!(y_ranges_storage, deepcopy((-1).*imag(EIS_exp_NEW[!, :Z]) ))
           push!(z_ranges_storage, bias_item)
+          push!(legend_ranges_storage, "TC=$(TC_item)°C pO2=$(pO2_item)% data_set=$(data_set_item)")
         else
           typical_plot_exp(loc_SIM, EIS_exp_NEW, "")      
-        end
-        #
-        if save_to_folder!=Nothing 
-          if occursin("src", pwd()[end-3 : end])
-            save_dir = "../data/experimental/"
-          elseif occursin("ysz", pwd()[end-3 : end])
-            save_dir = "./data/experimental/"
-          elseif occursin("les", pwd()[end-3 : end])
-            save_dir = "../data/experimental/"
-          else          
-            println("ERROR: please, go to directory \"ysz\" or \"ysz/src\" or \"ysz/examples\"")
-            return
+          #
+          if save_to_folder!=Nothing
+            save_file_prms(loc_SIM, EIS_exp_NEW, save_dir, [], [], []; mode="exp")
           end
-          save_file_prms(loc_SIM, EIS_exp_NEW, "$(save_dir)$(save_to_folder)", [], [], []; mode="exp")
         end
       end
     end
   end
-  if graph_3D
+  if (typeof(graph_3D_control) == my_GIF_maker.graph_3D_control)
     graph_3D_control.z_ranges = z_ranges_storage
+    graph_3D_control.legend_ranges =  legend_ranges_storage    
+    graph_3D_control.save_dir = save_dir
+    #
     my_GIF_maker.plot_2D_sequence_in_3D(x_ranges_storage, y_ranges_storage, graph_3D_control=graph_3D_control
     )
+  end
+  if (typeof(gif_maker_control) == my_GIF_maker.gif_maker_control)
+    gif_maker_control.x_ranges = x_ranges_storage
+    gif_maker_control.y_ranges = y_ranges_storage
+    gif_maker_control.z_ranges = z_ranges_storage
+    gif_maker_control.legend_ranges = legend_ranges_storage
+    gif_maker_control.save_dir = save_dir
+    my_GIF_maker.make_GIF(gif_maker_control)
   end
   return EIS_exp_NEW
 end

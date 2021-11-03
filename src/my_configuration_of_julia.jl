@@ -25,6 +25,7 @@ Pkg.add("LeastSquaresOptim")
 Pkg.add("Optim")
 Pkg.add("SparseArrays")
 Pkg.add("ProgressMeter")
+Pkg.add("LaTeXStrings")
 
 # for NNLS
 Pkg.add("MathProgBase")

@@ -49,6 +49,18 @@ ysz_fitting.EIS_view_experimental_data(
                                                 outlayers_threshold=2.0,                                    
                                                 use_DRT=false, DRT_control=ysz_fitting.DRT_control_struct()
                                          )
+                                         
+                                        #,graph_3D_control=ysz_fitting.my_GIF_maker.graph_3D_control(
+                                        #    save_name="default_3D.png"
+                                        #)
+                                        
+                                        #,gif_maker_control=ysz_fitting.my_GIF_maker.gif_maker_control(
+                                        #    fps=2,
+                                        #    #xlim=[10,100],
+                                        #    #ylim=[-100,100],
+                                        #    save_name="default_gif.gif",
+                                        #    title="jakoby"
+                                        #)
                                       );
 
 # Notes to EIS_preprocessing_control
