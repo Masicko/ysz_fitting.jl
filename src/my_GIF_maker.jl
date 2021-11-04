@@ -69,6 +69,11 @@ function make_GIF(gif_maker_control=gif_maker_control() )
     graphs_multiplicity = Int(sequence_length/z_range_period)    
   end
   
+#   @show gmc.z_ranges
+#   @show graphs_multiplicity
+#   @show z_range_period
+#   @show sequence_length
+  
   p = plot()
   anim = Animation()
   for seq_idx in collect(1:z_range_period)
@@ -139,7 +144,7 @@ function plot_2D_sequence_in_3D(x_ranges, y_ranges; graph_3D_control=graph_3D_co
           #camera=(30, -60)                    
           ylabel=L"\textrm{Re} \ Z \ [\Omega]",
           zlabel=L"\textrm{-Im} \ Z \ [\Omega]",
-          xlabel="bias",
+          xlabel=L"\textrm{bias}",
           title=gtc.title,          
           #aspect_ratio = 1.0, 1.0,
           )

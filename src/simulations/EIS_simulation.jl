@@ -370,31 +370,33 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
   EIS_exp_NEW = DataFrame()
   for TC_item in TC
     for pO2_item in pO2
-      for bias_item in bias, data_set_item in (typeof(data_set)==String ? [data_set] : data_set)
-        if use_checknodes
-          SIM = EIS_simulation()
-          checknodes =  get_shared_checknodes(SIM)
-          EIS_exp = apply_checknodes(SIM, import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item), checknodes)
-        else
-          EIS_exp = import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item)
-        end
-                                    
-        #typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, DRT_control=DRT_control, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp, "")        
-        
-        # NEW branch                
-        EIS_exp_NEW = EIS_preprocessing(EIS_exp, EIS_preprocessing_control)
-        #  
-        loc_SIM = EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)[1]
-        if postprocessing_bool
-          push!(x_ranges_storage, deepcopy(real(EIS_exp_NEW[!, :Z]) ))
-          push!(y_ranges_storage, deepcopy((-1).*imag(EIS_exp_NEW[!, :Z]) ))
-          push!(z_ranges_storage, bias_item)
-          push!(legend_ranges_storage, "TC=$(TC_item)°C pO2=$(pO2_item)% data_set=$(data_set_item)")
-        else
-          typical_plot_exp(loc_SIM, EIS_exp_NEW, "")      
-          #
-          if save_to_folder!=Nothing
-            save_file_prms(loc_SIM, EIS_exp_NEW, save_dir, [], [], []; mode="exp")
+      for data_set_item in (typeof(data_set)==String ? [data_set] : data_set)
+        for bias_item in bias
+          if use_checknodes
+            SIM = EIS_simulation()
+            checknodes =  get_shared_checknodes(SIM)
+            EIS_exp = apply_checknodes(SIM, import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item), checknodes)
+          else
+            EIS_exp = import_EIStoDataFrame(TC=TC_item, pO2=pO2_item, bias=bias_item, data_set=data_set_item)
+          end
+                                      
+          #typical_plot_exp(EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, DRT_control=DRT_control, plot_option=plot_option, plot_legend=plot_legend)..., EIS_exp, "")        
+          
+          # NEW branch                
+          EIS_exp_NEW = EIS_preprocessing(EIS_exp, EIS_preprocessing_control)
+          #  
+          loc_SIM = EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)[1]
+          if postprocessing_bool
+            push!(x_ranges_storage, deepcopy(real(EIS_exp_NEW[!, :Z]) ))
+            push!(y_ranges_storage, deepcopy((-1).*imag(EIS_exp_NEW[!, :Z]) ))
+            push!(z_ranges_storage, bias_item)
+            push!(legend_ranges_storage, "TC=$(TC_item)°C pO2=$(pO2_item)% data_set=$(data_set_item)")
+          else
+            typical_plot_exp(loc_SIM, EIS_exp_NEW, "")      
+            #
+            if save_to_folder!=Nothing
+              save_file_prms(loc_SIM, EIS_exp_NEW, save_dir, [], [], []; mode="exp")
+            end
           end
         end
       end
