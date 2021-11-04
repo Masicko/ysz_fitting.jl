@@ -30,13 +30,13 @@ end
 
 function make_GIF(gif_maker_control=gif_maker_control() )  
   
-  ENV_backup = "gksqt"
-  try
-    ENV_backup = ENV["GKSwstype"]
-  catch
-    ENV_backup = "gksqt"
-  end
-  ENV["GKSwstype"]="nul"
+#   ENV_backup = "gksqt"
+#   try
+#     ENV_backup = ENV["GKSwstype"]
+#   catch
+#     ENV_backup = "gksqt"
+#   end
+#   ENV["GKSwstype"]="nul"
  
   gmc = gif_maker_control
   
@@ -76,7 +76,7 @@ function make_GIF(gif_maker_control=gif_maker_control() )
                   title = "$(gmc.title)\nbias = $(gif_maker_control.z_ranges[seq_idx])",
                   aspect_ratio = 1.0, size=(800, 800),
                   xlim = auto_xlim, ylim = auto_ylim,
-                  xlabel=L"\textrm{Re} \ Z \[\Omega]",
+                  xlabel=L"\textrm{Re} \ Z \ [\Omega]",
                   ylabel=L"\textrm{-Im} \ Z \ [\Omega]"
       )
       for rep_idx in 1:graphs_multiplicity       
@@ -92,7 +92,7 @@ function make_GIF(gif_maker_control=gif_maker_control() )
   gif(anim, "$(gmc.save_dir)$(gmc.save_name)", fps = gif_maker_control.fps)
   
   
-  ENV["GKSwstype"]=ENV_backup
+#   ENV["GKSwstype"]=ENV_backup
   return
 end
 
