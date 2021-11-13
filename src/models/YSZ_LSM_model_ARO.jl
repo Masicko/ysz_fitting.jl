@@ -21,6 +21,10 @@ using DataFrames
 using Base: @kwdef
 using Printf
 
+
+include("../../prototypes/timedomain_impedance.jl")
+
+
 using DataFramesMeta
 # 
 const bulk_domains = (Ω_LSM,Ω_YSZ) = (1, 2)
@@ -72,13 +76,15 @@ mutable struct reaction_struct
     
 @kwdef mutable struct materialParameters <: VoronoiFVM.AbstractData
 
+    newton_tol_abs::Float64=1.0e-10
+    newton_tol_rel::Float64=1.0e-10
+    
     # geometry parameters
     # grid
     L_LSM::Float64=1.0e-3
     L_YSZ::Float64=1.0e-3
     h_min::Float64=1.01e-12
-    h_max::Float64=1.9e-1
-    Γ_node_idx::Int32=-1
+    h_max::Float64=1.9e-1    
     #
     S_ellyt::Float64=1.0 # [m^2]
     
@@ -140,9 +146,9 @@ mutable struct reaction_struct
 end 
 
 function update_parameters!(this)
-      @show this.y_YSZ
-      @show this.zC_YSZ
-      @show this.nu
+#       @show this.y_YSZ
+#       @show this.zC_YSZ
+#       @show this.nu
     
     this.zC_YSZ = 4*(1-this.x_frac)/(1+this.x_frac) + 3*2*this.x_frac/(1+this.x_frac) - 2*m_par*this.nu
     this.y_YSZ = -this.zC_YSZ/(za*m_par*(1-this.nu))
@@ -151,8 +157,7 @@ function update_parameters!(this)
     
     grid = makegrid(this)
     X = grid.components[XCoordinates]
-    @show length(X)
-    this.Γ_node_idx = Int((length(X) + 1)/2)
+#     @show length(X)    
 end
 
 function conv_prms(prms_names, prms_values)
@@ -200,7 +205,7 @@ end
 function set_parameters!(this, d::Dict)
   prms_names = String.(collect(keys(d)))
   prms_values = collect(values(d))
-  
+
   found = false
   for (i,name_in) in enumerate(prms_names)
     found = false
@@ -860,9 +865,10 @@ function equilibrium_solution(sys; testing=false)
 #     inival[ios,:] .= 0.5
     ##########################################
     #
-    control=VoronoiFVM.NewtonControl()
-    control.tol_absolute = 1e-13
-     control.max_iterations = 1000
+    control=VoronoiFVM.NewtonControl()    
+    control.tol_absolute = sys.physics.data.newton_tol_abs
+    control.tol_relative = sys.physics.data.newton_tol_rel        
+    control.max_iterations = 1000
      control.damp_initial = 1e-8
      control.damp_growth = 1.1
     testing ? control.verbose=true : control.verbose=false
@@ -879,7 +885,8 @@ end
 
 function stationary_update!(result, inival=nothing,sys=nothing)
     control=VoronoiFVM.NewtonControl()
-    control.tol_absolute = 1e-11
+    control.tol_absolute = sys.physics.data.newton_tol_abs
+    control.tol_relative = sys.physics.data.newton_tol_rel
     # control.max_iterations = 1000
     # control.damp_initial = 1e-8
     # control.damp_growth = 1.1
@@ -950,26 +957,18 @@ function test_IV(sys=Nothing; bound=1.0, step=0.01, cF_list=[LSM_testing_current
 end
 
 function impedance_sweep(sys,steadystate;f_range=geometric(0.9, 1.0e+5, 1.1), print_bool=false, currentF=Nothing,excited_bc = Γ_LSM,
-    excited_spec = iphi, functional_current=false)
+    excited_spec = iphi, functional_current=false, TDS_EIS=false)
 
     # excited_bcval=sys.physics.data.bias + equilibrium_voltage(sys)
     excited_bcval=sys.boundary_values[excited_spec,excited_bc]
 
     function I_stdy(meas, u)
-        U=reshape(u,sys)
-        if functional_current
-          currentF(sys)[1](meas, U)
-        else
-          meas[1] = currentF(sys, U)[1]
-        end
+        U=reshape(u,sys)        
+        meas[1] = currentF(sys, U)[1]        
     end
     function I_tran(meas, u)
-        U=reshape(u,sys)        
-        if functional_current
-          currentF(sys)[1](meas, U)
-        else
-          meas[1] = currentF(sys, U)[2]
-        end
+        U=reshape(u,sys)                
+        meas[1] = currentF(sys, U)[2]        
     end
 
     # Create impedance system
@@ -982,21 +981,34 @@ function impedance_sweep(sys,steadystate;f_range=geometric(0.9, 1.0e+5, 1.1), pr
     w_range = 2*pi*f_range
     for w in w_range
         print_bool && @show w
-        zfreq=freqdomain_impedance(isys,w,steadystate,excited_spec,excited_bc,excited_bcval, dstdy, dtran)
+        if TDS_EIS
+          z=timedomain_impedance(sys, w, steadystate, excited_spec, excited_bc, excited_bcval, I_stdy, I_tran,
+                      #tref=tref, 
+                      excitation_amplitude=1.0e-3,
+                      fit=true, tol_amplitude=1.0e-3, fit_window_size=20.0, plot_amplitude=false)
+          @show w, z                
+        else
+          z=freqdomain_impedance(isys,w,steadystate,excited_spec,excited_bc,excited_bcval, dstdy, dtran)
+        end
         inductance = im*sys.physics.data.L*w
-        push!(df, Dict(:f => w/2.0/pi, :Z => inductance + 1.0/zfreq))
-        print_bool && @show zfreq
+        push!(df, Dict(:f => w/2.0/pi, :Z => inductance + 1.0/z))
+        print_bool && @show z
     end    
     print_bool && @show df
     return df
 end
 
-function impedance_sweep_test(sys=YSZ_LSM_model_ARO.sys(); cF_list=[LSM_testing_current, YSZ_testing_current])    
+function impedance_sweep_test(sys=YSZ_LSM_model_ARO.sys();
+                              cF_list=[LSM_testing_current, YSZ_testing_current],
+                              TDS_EIS=false,
+                              f_range=(TDS_EIS ? geometric(1.0e-3, 1.0e3, 10.0) : geometric(1.0e-7, 1.0e+5, 1.1))
+                              
+    )        
     eqsol = YSZ_LSM_model_ARO.equilibrium_solution(sys)#, testing=true)
     
     p = Plots.plot(ratio=:equal)
     for (cF, exbc) in zip(cF_list,[Γ_LSM,Γ_LSM,Γ_LSM])
-        df = impedance_sweep(sys, eqsol, currentF=cF,excited_bc = exbc)
+        df = impedance_sweep(sys, eqsol, f_range=f_range, currentF=cF,excited_bc = exbc, TDS_EIS=TDS_EIS)
         Plots.plot!(p, real.(df.Z), -imag.(df.Z), seriestype=:scatter, label=string(Symbol(cF)))
     end
     gui(p)
@@ -1005,6 +1017,16 @@ end
 function set_eta!(sys, eta)
   sys.physics.data.bias = eta
 end
+
+
+
+
+
+
+
+
+
+
 
 
 function potential_step_response(sys, pstep=0.1; tstep = 1e-8, tend = 1.0e+3, Plotter=nothing)
@@ -1241,8 +1263,7 @@ end
  # TODO ... prejmenovat funkce na spravne nazvy
 function legacy_current_steady(sys, U)
   parameters = sys.physics.data
-  #u_S = tpb_view(sys, U)
-  u_S = U[:,parameters.Γ_node_idx]
+  #u_S = tpb_view(sys, U)  
   return parameters.S_ellyt*( -2*e0*electroreaction(parameters, u_S) )
 end
 
@@ -1268,10 +1289,6 @@ function legacy_current_transient(sys, U)
   
   #@show dphi_end
   #@show dx_end
-  
-
-    
-  u_S = U[:,data.Γ_node_idx]
   
   #breaction_output = zeros(length(species_names))
   #breaction!(breaction_output, u_S, fooNode(Γ), parameters)
