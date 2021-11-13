@@ -19,16 +19,23 @@ using Plots
 using PyPlot
 using DataFrames
 using Base: @kwdef
+using Printf
 
 using DataFramesMeta
 # 
 const bulk_domains = (Ω_LSM,Ω_YSZ) = (1, 2)
 const surface_domains = (Γ_LSM,Γ_YSZ,Γ) = (1, 2, 3)
 
-const bulk_species = (ie, iy, iphi) = (1, 2, 3)
-const surface_species = (ies, iys, ios) = (4, 5, 6)
-const species = (ie, iy, iphi, ies, iys, ios)
-const species_names = ("ie", "iy", "iphi", "ies", "iys", "ios")
+# const bulk_species_idxs = (ie, iy, iphi) = (1, 2, 3)
+# const surface_species_idxs = (ies, iys, ios) = (4, 5, 6)
+# const species_idxs = (ie, iy, iphi, ies, iys, ios)
+# const species_names = ("ie", "iy", "iphi", "ies", "iys", "ios")
+
+const bulk_species_idxs = (ie, iy, iphi) = (1, 2, 3)
+const surface_species_idxs = () = ()
+const species_idxs = (ie, iy, iphi)
+const species_names = ("ie", "iy", "iphi")
+
 
 # basic physics constants
 const kB = 1.3806503e-23
@@ -105,7 +112,7 @@ mutable struct reaction_struct
     # oxide adsorption from YSZ
     #                                          r,r_A,r_B,r_C    DG,DG_A,DG_B, DG_C, beta,S,  exp
     O::reaction_struct = reaction_struct( 1.0e21,  1,  1,  1,  0.0,   1,   1,    1,  0.5,1,  false)
-    E::reaction_struct = reaction_struct( 1.0e25,  1,  1,  1,  0.0,   1,   1,    1,  0.5,1,  false)
+    E::reaction_struct = reaction_struct( 1.0e20,  1,  1,  1,  0.0,   1,   1,    1,  0.5,1,  false)
     R::reaction_struct = reaction_struct( 1.0e21,  1,  1,  1,  0.0,   1,   1,    1,  0.5,1,  false)
     A::reaction_struct = reaction_struct( 1.0e21,  1,  1,  1,  0.0,   1,   1,    1,  0.5,1,  false)
 
@@ -245,11 +252,25 @@ end
 function equilibrium_voltage(sys)
     # adjust
     data = sys.physics.data
+#     E = (1/2)*(
+#           kB*data.T/e0*log(
+#             (
+#               (data.pO2)^(1/2)
+#               *
+#               (data.e_LSM)^2 
+#               *
+#               ((1-data.y_YSZ)/(data.y_YSZ))
+#             ) # pokus s prevracenou hodnotou neni dobry           
+#           )
+#           -
+#           (1/e0)*(
+#             data.A.DG + data.R.DG + 2*data.E.DG + data.O.DG/2
+#           )
+#         )
+        
     E = (1/2)*(
           kB*data.T/e0*log(
-            (
-              (data.pO2)^(1/2)
-              *
+            (              
               (data.e_LSM)^2 
               *
               ((1-data.y_YSZ)/(data.y_YSZ))
@@ -257,9 +278,10 @@ function equilibrium_voltage(sys)
           )
           -
           (1/e0)*(
-            data.A.DG + data.R.DG + 2*data.E.DG + data.O.DG/2
+            2*data.E.DG
           )
         )
+   
 end
 
 function set_bcs!(sys)
@@ -487,7 +509,7 @@ function electroreaction(this, u; debug_bool=false)
                             /
                             u[ios]
                             /
-                            u[ies]
+                            u[ies]^2
                           )
                         )
                     )
@@ -582,46 +604,132 @@ function electron_adsorption(this, u; debug_bool=false)
     return rate# LoMA (with beta = 0.5)
 end
 
+# # function bstorage!(f,u, node, data)
+# #     # adjust
+# #     if node.region==3
+# #         f[iys] = data.COmm*u[iys]
+# #         f[ios] = data.CO*u[ios]
+# #         f[ies] = u[ies]        
+# #     end
+# # end
+# # 
+# # function breaction!(f,u,node, data)
+# #     for ispec in species_idxs
+# #         f[ispec] = 0.0
+# #     end
+# #     if node.region==Γ   
+# #         r_E = electron_adsorption(data, u)
+# #         r_A = oxide_desorption(data, u)
+# #         r_R = electroreaction(data,u)
+# #         r_O = oxygen_adsorption(data, u)
+# #         # bulk
+# #         f[ie]  = data.ie_bulk_eqn_scaling*data.nC_LSM^( -1 )*(  r_E  )
+# #         f[iy]  = (m_par*(1-data.nu)*data.nC_YSZ)^( -1 )*( -r_A    )
+# #         # surface
+# #         f[ies] = data.nC_LSM^(-2/3)*(- r_E + 2*r_R)
+# #         f[iys] = (m_par*(1-data.nu)*data.nC_YSZ)^(-2/3)*(  r_A -  r_R )
+# #         f[ios] = (m_par*(1-data.nu)*data.nC_YSZ)^(-2/3)*(- 2*r_O + r_R )
+# #         ## surface Poisson
+# #         f[iphi] =  -e0*(
+# #             (m_par*(1-data.nu)*data.nC_YSZ)^(2/3)*za*u[iys] 
+# #             +
+# #             data.nC_YSZ^(2/3)*data.zC_YSZ
+# #             + 
+# #             data.nC_LSM^(2/3)*(
+# #                 ze*u[ies] + zC_LSM
+# #             )
+# #         )
+# #         #f[iphi] = 0.0
+# #     end
+# # end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function AUX_reaction(this, u; debug_bool=false)
+    # 2*e-(LSM) => O-II(YSZ)
+    if this.E.r > 0
+        if Bool(this.E.exp)
+          the_fac = 1
+        else
+          # LoMA
+          the_fac = (
+               (u[iy]*(1-u[iy]))
+               *
+               (u[ie])^2                              
+            )^(this.E.S/2.0)
+        end
+        rate = the_fac*EXP_reaction_template(
+          this, 
+          this.E, 
+          PI_activites= (
+                            (u[iy]/(1-u[iy]))
+                            /
+                            u[ie]^2
+                        )
+        )
+    else
+      the_fac = 0
+      rate = 0
+    end
+    if debug_bool
+      print("  E > ")
+      @show the_fac, rate
+    end
+    return rate# LoMA (with beta = 0.5)
+end
 
 function bstorage!(f,u, node, data)
     # adjust
-    if node.region==3
-        f[iys] = data.COmm*u[iys]
-        f[ios] = data.CO*u[ios]
-        f[ies] = u[ies]        
-    end
+#     if node.region==3
+#         f[iys] = data.COmm*u[iys]
+#         f[ios] = data.CO*u[ios]
+#         f[ies] = u[ies]        
+#     end
 end
 
-
 function breaction!(f,u,node, data)
-    for ispec in species
+    for ispec in species_idxs
         f[ispec] = 0.0
     end
     if node.region==Γ   
-        r_E = electron_adsorption(data, u)
-        r_A = oxide_desorption(data, u)
-        r_R = electroreaction(data,u)
-        r_O = oxygen_adsorption(data, u)
+        r_E = AUX_reaction(data, u)
+#         r_A = oxide_desorption(data, u)
+#         r_R = electroreaction(data,u)
+#         r_O = oxygen_adsorption(data, u)
         # bulk
-        f[ie]  = data.ie_bulk_eqn_scaling*data.nC_LSM^( -1 )*(  r_E  )
-        f[iy]  = (m_par*(1-data.nu)*data.nC_YSZ)^( -1 )*( -r_A    )
+        f[ie]  = data.ie_bulk_eqn_scaling*data.nC_LSM^( -1 )*(  2*r_E  )
+        f[iy]  = (m_par*(1-data.nu)*data.nC_YSZ)^( -1 )*( -r_E    )
         # surface
-        f[ies] = data.nC_LSM^(-2/3)*(- r_E + 2*r_R)
-        f[iys] = (m_par*(1-data.nu)*data.nC_YSZ)^(-2/3)*(  r_A -  r_R )
-        f[ios] = (m_par*(1-data.nu)*data.nC_YSZ)^(-2/3)*(- 2*r_O + r_R )
+#         f[ies] = data.nC_LSM^(-2/3)*(- r_E + 2*r_R)
+#         f[iys] = (m_par*(1-data.nu)*data.nC_YSZ)^(-2/3)*(  r_A -  r_R )
+#         f[ios] = (m_par*(1-data.nu)*data.nC_YSZ)^(-2/3)*(- 2*r_O + r_R )
         ## surface Poisson
-        f[iphi] =  -e0*(
-            (m_par*(1-data.nu)*data.nC_YSZ)^(2/3)*za*u[iys] 
-            +
-            data.nC_YSZ^(2/3)*data.zC_YSZ
-            + 
-            data.nC_LSM^(2/3)*(
-                ze*u[ies] + zC_LSM
-            )
-        )
+#         f[iphi] =  -e0*(
+#             (m_par*(1-data.nu)*data.nC_YSZ)^(2/3)*za*u[iys] 
+#             +
+#             data.nC_YSZ^(2/3)*data.zC_YSZ
+#             + 
+#             data.nC_LSM^(2/3)*(
+#                 ze*u[ies] + zC_LSM
+#             )
+#         )
         #f[iphi] = 0.0
     end
 end
+
 
 
 
@@ -724,15 +832,17 @@ function sys(;params_dict=:None)
     end  
     
     grid=makegrid(hmin=data.h_min, hmax=data.h_max, L_YSZ=data.L_YSZ, L_LSM=data.L_LSM)
-    physics=VoronoiFVM.Physics(data=data,num_species=6, flux=flux!, storage=storage!, reaction=reaction!, bstorage=bstorage!, breaction=breaction!)
+    physics=VoronoiFVM.Physics(data=data,num_species=length(species_idxs), flux=flux!, storage=storage!, reaction=reaction!, bstorage=bstorage!, breaction=breaction!)
     sys = VoronoiFVM.System(grid,physics) # ?? Sparse
     # enable species
     enable_species!(sys,iphi,[Ω_LSM,Ω_YSZ])
     enable_species!(sys,iy,[Ω_YSZ])
     enable_species!(sys,ie,[Ω_LSM])
-    enable_boundary_species!(sys,iys,[Γ])
-    enable_boundary_species!(sys,ies,[Γ])
-    enable_boundary_species!(sys,ios,[Γ])
+    for idx_sur_species in surface_species_idxs
+      enable_boundary_species!(sys,idx_sur_species,[Γ])
+      enable_boundary_species!(sys,idx_sur_species,[Γ])
+      enable_boundary_species!(sys,idx_sur_species,[Γ])
+    end
     # set boundary conditions consistent with parameters
     set_bcs!(sys)
     return sys
@@ -743,9 +853,12 @@ function equilibrium_solution(sys; testing=false)
     inival[iphi,:] .= 0.0
     inival[iy,:] .= sys.physics.data.y_YSZ
     inival[ie,:] .= sys.physics.data.e_LSM
-    inival[iys,:] .= sys.physics.data.y_YSZ
-    inival[ies,:] .= sys.physics.data.e_LSM
-    inival[ios,:] .= 0.5
+    
+    ##########################################
+#     inival[iys,:] .= sys.physics.data.y_YSZ
+#     inival[ies,:] .= sys.physics.data.e_LSM
+#     inival[ios,:] .= 0.5
+    ##########################################
     #
     control=VoronoiFVM.NewtonControl()
     control.tol_absolute = 1e-13
@@ -808,7 +921,7 @@ function phi_stationary_sweep(sys, equilibrium_solution; bias_range=collect(0.01
     return df
 end
 
-function test_IV(sys=Nothing; bound=1.0, step=0.01, cF_list=[LSM_current, YSZ_current, YSZ_current_neg], plot_bool=false)
+function test_IV(sys=Nothing; bound=1.0, step=0.01, cF_list=[LSM_testing_current, YSZ_testing_current], plot_bool=false)
     if sys==Nothing
       sys = YSZ_LSM_model_ARO.sys()
     end
@@ -878,14 +991,14 @@ function impedance_sweep(sys,steadystate;f_range=geometric(0.9, 1.0e+5, 1.1), pr
     return df
 end
 
-function impedance_sweep_test(sys=Nothing)
+function impedance_sweep_test(sys=Nothing; cF_list=[LSM_testing_current, YSZ_testing_current])
     if sys==Nothing
       sys = YSZ_LSM_model_ARO.sys()
     end
     eqsol = YSZ_LSM_model_ARO.equilibrium_solution(sys)#, testing=true)
     
     p = Plots.plot(ratio=:equal)
-    for (cF, exbc) in zip([LSM_current, YSZ_current],[Γ_LSM,Γ_YSZ,Γ_LSM])
+    for (cF, exbc) in zip([LSM_current, YSZ_current],[Γ_LSM,Γ_LSM,Γ_LSM])
         df = impedance_sweep(sys, eqsol, currentF=cF,excited_bc = exbc)
         Plots.plot!(p, real.(df.Z), -imag.(df.Z), seriestype=:scatter, label=string(Symbol(cF)))
     end
@@ -932,7 +1045,59 @@ function potential_step_response(sys, pstep=0.1; tstep = 1e-8, tend = 1.0e+3, Pl
     return df
 end
 
+function evaluate_total_current(sys, generic_current_funcion, U_old, U_new, t_step)
+  (C_old_steady, C_old_trans) = generic_current_funcion(sys, U_old)
+  (C_new_steady, C_new_trans) = generic_current_funcion(sys, U_new)
+    
+  return (C_old_steady + C_new_steady)/2 + (C_new_trans - C_old_trans)/t_step
+end
+    
+function str_num_chars(s, n)
+  output = "$(s)"
+  for i in length(s) + 1:n
+    output *= " "
+  end
+  return output
+end
 
+function potential_step_response_test(sys=sys(); pstep=0.1, tstep = 1e-5, tend = 1.0, plot_each = 1, first_to_plot=2, plot_only_result=false,
+                                      cF_list=[YSZ_testing_current, LSM_testing_current]
+                                      )  
+    df_sol = potential_step_response(sys, pstep, tstep = tstep, tend=tend)[!, :solution]                                  
+
+    if plot_only_result
+      storage=Array{Array}(undef, length(cF_list))      
+      for idx in 1:length(storage)
+        storage[idx] = []
+      end
+    end
+    #for i in collect(3 : 1 : length(df_sol))
+    for i in collect(first_to_plot : plot_each : length(df_sol))      
+      if plot_only_result
+        for (idx, storage_item) in enumerate(storage)
+          push!(storage_item, evaluate_total_current(sys, cF_list[idx], df_sol[i-1], df_sol[i], tstep))
+        end
+      else
+        plotsolution(sys, df_sol[i], zoom=5.0e-9)
+        
+        println("I-YSZ          = ", evaluate_total_current(sys, YSZ_current_neg, df_sol[i-1], df_sol[i], tstep))
+        println("I-LSM          = ", evaluate_total_current(sys, LSM_current, df_sol[i-1], df_sol[i], tstep))
+        println("I-YSZ_testing  = ", evaluate_total_current(sys, YSZ_testing_current, df_sol[i-1], df_sol[i], tstep))
+        println("I-LSM_testing  = ", evaluate_total_current(sys, LSM_testing_current, df_sol[i-1], df_sol[i], tstep))
+        #println("I-legacy = ",legacy_current(sys, df_sol[1]))
+        pause(1)
+      end
+    end
+    if plot_only_result
+      plt = Plots.plot()
+      for idx in 1:length(storage)
+        Plots.plot!(plt, storage[idx], label=string(Symbol(cF_list[idx])))
+        #println(str_num_chars("$(cF_list[idx])",22)*"= ", storage[idx])
+      end
+      gui(plt)
+    end
+    return  
+end
 
 
 

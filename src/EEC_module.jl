@@ -305,14 +305,16 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
     
     
     
-    ################### 
+#     ################### 
+#     #pause(0.1)
+#     
 #     EIS_EEC_plot = get_EIS_from_EEC(EEC_actual, f_range=EIS_get_checknodes_geometrical((1, 10000, 1.4)...))
 #     if check_dramatic_change(x) || true
-#       typical_plot_sim(SIM, EIS_EEC_plot)
+#       #typical_plot_sim(SIM, EIS_EEC_plot)
 #     end
 #     
-#     PyPlot.show()
-#     pause(0.1)
+#     #PyPlot.show()
+#     
 #       
 #     EEC_plot_error_projection(
 #       take_only_masked(mask, EEC_actual.prms_values), 
@@ -320,15 +322,18 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
 #       err)
 #     
 #      println("~~~~~ LM e = $(err)\nx = $(x)")
-    ##################
-    
-    
-    if !(check_x_in(x, lowM, uppM))
-      
-       #println("    OUT OF THE BOUNDS   \n")
-      
-      return 1000
-    end
+#     ##################
+#     
+#     
+#     if !(check_x_in(x, lowM, uppM))
+# #       ##############
+#        @show x
+#        @show lowM
+#        @show uppM
+#        println("    OUT OF THE BOUNDS   \n")
+# #       ##############
+# #       return 1000
+#     end
     
     
     return err
@@ -356,7 +361,7 @@ function EEC_find_fit!(EEC_actual::EEC_data_struct, EIS_exp::DataFrame; mask=Not
   
   lower_bounds = Array{Float32}(undef, prms_length)
   upper_bounds = Array{Float32}(undef, prms_length)
-  lower_bounds_threshold = 5e-9
+  lower_bounds_threshold = 1e-11
   for (i, name) in enumerate(EEC_actual.prms_names)
       if occursin("alpha", name)
         lower_bounds[i] = max(alpha_low, lower_bounds_threshold)
@@ -609,7 +614,8 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
     RCPE_count = get_count_of_RCPEs(EEC)
     
     # R_ohm
-    if RCPE_count > 0
+    #if RCPE_count > 0
+    if false
       lower_limits[1] = left/2
       upper_limits[1] = right
     else
@@ -642,7 +648,7 @@ function set_fitting_limits_to_EEC_from_EIS_exp!(EEC::EEC_data_struct, EIS_exp)
     end
     
     # C[end]
-    if prms_length == 2 + 3*RCPE_count + 1
+    if prms_length == 2 + 3*RCPE_count + 1      
       lower_limits[end] = 0.0
       upper_limits[end] = Inf
     end
@@ -967,8 +973,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
 
 ## HERE
     set_fitting_limits_to_EEC_from_EIS_exp!(EEC_actual, EIS_exp)
-
-
+    
 ## HERE
     init_values_list = []
     if init_values == Nothing || cycle_number > 1

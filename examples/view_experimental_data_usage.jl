@@ -45,7 +45,7 @@ ysz_fitting.EIS_view_experimental_data(
                                                 #add_inductance=0,
                                                 #scale_factor=0.1,
                                                 #trim_inductance=true, 
-                                                leave_only_inductance_points=2,     # must be at least >= 2 
+                                                #leave_only_inductance_points=2,     # must be at least >= 2 
                                                 outlayers_threshold=2.0,                                    
                                                 use_DRT=false, DRT_control=ysz_fitting.DRT_control_struct()
                                          )

@@ -39,6 +39,7 @@ include("../src/models/ysz_model_GAS_LoMA_shared.jl")
 include("../src/models/ysz_model_GAS_LoMA_Temperature.jl")
 include("../src/models/ysz_model_GAS_LoMA_generic.jl")
 include("../src/models/YSZ_LSM_model_ARO.jl")
+#include("../src/models/YSZ_LSM_model_ARO_simplified.jl")
 
 
 include("../prototypes/timedomain_impedance.jl")
@@ -176,24 +177,24 @@ function run_new(;physical_model_name,
 #         end
         
         
-#         # # # # # potential step response # # # # # # #
-#         begin
-#           tstep = 1e-10
-#           df_sol = model_symbol.potential_step_response(sys, -0.1, tstep = tstep)[!, :solution]                                  
-#             
-#           #for i in collect(3 : 1 : length(df_sol))
-#           for i in collect(20 : 10 : length(df_sol))
-#             model_symbol.plotsolution(sys, df_sol[i], zoom=5.0e-9)
-#             
-#             println("I-YSZ          = ", evaluate_total_current(model_symbol.YSZ_current_neg, df_sol[i-1], df_sol[i], tstep))
-#             println("I-LSM          = ", evaluate_total_current(model_symbol.LSM_current, df_sol[i-1], df_sol[i], tstep))
-#             println("I-YSZ_testing  = ", evaluate_total_current(model_symbol.YSZ_testing_current, df_sol[i-1], df_sol[i], tstep))
-#             println("I-LSM_testing  = ", evaluate_total_current(model_symbol.LSM_testing_current, df_sol[i-1], df_sol[i], tstep))
-#             #println("I-legacy = ",model_symbol.legacy_current(sys, df_sol[1]))
-#             pause(5)
-#           end
-#           return
-#         end        
+        # # # # # potential step response # # # # # # #
+        begin
+          tstep = 1e-10
+          df_sol = model_symbol.potential_step_response(sys, -0.1, tstep = tstep)[!, :solution]                                  
+            
+          #for i in collect(3 : 1 : length(df_sol))
+          for i in collect(20 : 10 : length(df_sol))
+            model_symbol.plotsolution(sys, df_sol[i], zoom=5.0e-9)
+            
+            println("I-YSZ          = ", evaluate_total_current(model_symbol.YSZ_current_neg, df_sol[i-1], df_sol[i], tstep))
+            println("I-LSM          = ", evaluate_total_current(model_symbol.LSM_current, df_sol[i-1], df_sol[i], tstep))
+            println("I-YSZ_testing  = ", evaluate_total_current(model_symbol.YSZ_testing_current, df_sol[i-1], df_sol[i], tstep))
+            println("I-LSM_testing  = ", evaluate_total_current(model_symbol.LSM_testing_current, df_sol[i-1], df_sol[i], tstep))
+            #println("I-legacy = ",model_symbol.legacy_current(sys, df_sol[1]))
+            pause(5)
+          end
+          return
+        end        
 
         # # # # # # impedance test # # # # # # # # # 
         begin

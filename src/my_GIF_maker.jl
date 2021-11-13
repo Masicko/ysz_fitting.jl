@@ -25,6 +25,7 @@ using LaTeXStrings
   save_name::String="gif_default"  
   fps::Float64=1.0
   title::String=""
+  plot_legend::Bool=true
 end
 
 
@@ -82,7 +83,8 @@ function make_GIF(gif_maker_control=gif_maker_control() )
                   aspect_ratio = 1.0, size=(800, 800),
                   xlim = auto_xlim, ylim = auto_ylim,
                   xlabel=L"\textrm{Re} \ Z \ [\Omega]",
-                  ylabel=L"\textrm{-Im} \ Z \ [\Omega]"
+                  ylabel=L"\textrm{-Im} \ Z \ [\Omega]",
+                  legend=gmc.plot_legend
       )
       for rep_idx in 1:graphs_multiplicity       
         plot!(act_plot, 
@@ -117,6 +119,7 @@ end
   save_name::String=""
   save_dir::String=""
   title::String="3D plot čehosi"
+  plot_legend::Bool=true
 end
 
 function plot_2D_sequence_in_3D(x_ranges, y_ranges; graph_3D_control=graph_3D_control() )
