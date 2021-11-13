@@ -106,8 +106,8 @@ mutable struct reaction_struct
     x_frac::Float64 = 0.13
     nu::Float64 = 0.285
     
-   
-    ## Interface  
+    
+    ## Interface
     #COs::Float64=1.0e18
     # oxide adsorption from YSZ
     #                                          r,r_A,r_B,r_C    DG,DG_A,DG_B, DG_C, beta,S,  exp
@@ -991,14 +991,11 @@ function impedance_sweep(sys,steadystate;f_range=geometric(0.9, 1.0e+5, 1.1), pr
     return df
 end
 
-function impedance_sweep_test(sys=Nothing; cF_list=[LSM_testing_current, YSZ_testing_current])
-    if sys==Nothing
-      sys = YSZ_LSM_model_ARO.sys()
-    end
+function impedance_sweep_test(sys=YSZ_LSM_model_ARO.sys(); cF_list=[LSM_testing_current, YSZ_testing_current])    
     eqsol = YSZ_LSM_model_ARO.equilibrium_solution(sys)#, testing=true)
     
     p = Plots.plot(ratio=:equal)
-    for (cF, exbc) in zip([LSM_current, YSZ_current],[Γ_LSM,Γ_LSM,Γ_LSM])
+    for (cF, exbc) in zip(cF_list,[Γ_LSM,Γ_LSM,Γ_LSM])
         df = impedance_sweep(sys, eqsol, currentF=cF,excited_bc = exbc)
         Plots.plot!(p, real.(df.Z), -imag.(df.Z), seriestype=:scatter, label=string(Symbol(cF)))
     end
@@ -1127,7 +1124,7 @@ function LSM_current(sys, U)
     factory = VoronoiFVM.TestFunctionFactory(sys)
     tLSM = testfunction(factory, Γ, Γ_LSM)
     prefactor = sys.physics.data.ie_bulk_eqn_scaling^(-1)*e0*ze*sys.physics.data.nC_LSM
-    currents = VoronoiFVM.integrate_stdy(sys, tLSM, U)
+    currents = VoronoiFVM.integrate_stdy(sys, tLSM, U)    
     return sys.physics.data.S_ellyt.*(prefactor*currents[ie], currents[iphi])
 end
 
@@ -1166,11 +1163,11 @@ function LSM_testing_current_functional(sys)
 end
 
 function LSM_testing_current(sys, U)
-  formal_meas_stdy = [1.]
-  formal_meas_tran = [1.]
+  formal_meas_stdy = Array{Any}(undef,1)
+  formal_meas_tran = Array{Any}(undef,1)
   (meas_stdy_func, meas_tran_func) = LSM_testing_current_functional(sys)
   meas_stdy_func(formal_meas_stdy, U)
-  meas_tran_func(formal_meas_tran, U)
+  meas_tran_func(formal_meas_tran, U)  
   return sys.physics.data.S_ellyt.*(formal_meas_stdy[1], formal_meas_tran[1])
 end
 
@@ -1227,8 +1224,8 @@ function YSZ_testing_current_functional(sys)
 end
 
 function YSZ_testing_current(sys, U)
-  formal_meas_stdy = [1.]
-  formal_meas_tran = [1.]
+  formal_meas_stdy = Array{Any}(undef,1)
+  formal_meas_tran = Array{Any}(undef,1)
   (meas_stdy_func, meas_tran_func) = YSZ_testing_current_functional(sys)
   meas_stdy_func(formal_meas_stdy, U)
   meas_tran_func(formal_meas_tran, U)
