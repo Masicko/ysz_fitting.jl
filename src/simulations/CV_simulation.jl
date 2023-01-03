@@ -63,7 +63,10 @@ function CV_simulation(TC, pO2, bias=0.0; data_set="MONO_110", physical_model_na
       this.low_bound = low_bound
       this.width = width
       this.dx_exp = dx_exp
+      
+      #this.sample = sample
       this.sample = sample
+      
       this.voltrate = voltrate
       #
       this.fig_size = fig_size
@@ -136,7 +139,7 @@ function load_file_prms(sim::CV_simulation; save_dir, prms, prms_names=("A0", "R
     return df_out
 end
 
-function save_file_prms(SIM::CV_simulation, df_out, save_dir, prms, prms_names, scripted_tuple; mode="")
+function save_file_prms(SIM::CV_simulation, df_out, save_dir, prms=[], prms_names=[], scripted_tuple=nothing; mode="")
     if mode=="exp"
       prefix = "$(string(SIM))_experiment"
       scripted_tuple = Array{Int16}(undef, length(prms_names))
@@ -197,6 +200,9 @@ function typical_plot_exp(SIM::CV_simulation, CV_df, additional_string="", to_st
 end
 
 function typical_run_simulation(SIM::CV_simulation, prms_names_in, prms_values_in, pyplot::Int=0) 
+  @show prms_names_in 
+  @show prms_values_in
+  
   ysz_experiments.run_new(
       out_df_bool=true, voltammetry=true, pyplot=(pyplot == 2 ? true : false), 
       width=SIM.width, dx_exp=SIM.dx_exp, sample= (SIM.fast_mode ? fast_mode_sample : SIM.sample), 
@@ -212,8 +218,8 @@ function import_data_to_DataFrame(SIM::CV_simulation)
   import_CVtoDataFrame(TC=SIM.TC, pO2=SIM.pO2, data_set=SIM.data_set)
 end
 
-function CV_view_experimental_data(;TC, pO2, data_set, use_checknodes=false, fig_num=11)    
-    figure(fig_num)
+function CV_view_experimental_data(;TC, pO2, data_set, use_checknodes=false, fig_num=11, only_save=false, save_path="../data/CV_experimental/", save_name="default/")    
+    !only_save && figure(fig_num)
     CV_exp = DataFrame()
     for TC_item in TC, pO2_item in pO2, data_set_item in (typeof(data_set)==String ? [data_set] : data_set)
       if use_checknodes
@@ -222,7 +228,11 @@ function CV_view_experimental_data(;TC, pO2, data_set, use_checknodes=false, fig
       else
         CV_exp = import_CVtoDataFrame(TC=TC_item, pO2=pO2_item, data_set=data_set_item)
       end
-      typical_plot_exp(CV_simulation(TC_item, pO2_item, data_set=data_set_item)..., CV_exp, "", false)
+      if only_save            
+        save_file_prms(CV_simulation(TC_item, pO2_item, data_set=data_set_item)..., CV_exp, save_path*save_name, mode="exp")
+      else
+        typical_plot_exp(CV_simulation(TC_item, pO2_item, data_set=data_set_item)..., CV_exp, "", false)
+      end
     end
     return CV_exp
 end

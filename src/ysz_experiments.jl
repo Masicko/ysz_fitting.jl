@@ -75,8 +75,11 @@ function run_new(;physical_model_name,
                 )
 
                 
-                
-                
+  #@show fast_CV_mode
+  #sample = 10
+  #upp_bound_eta = 3.0
+  #low_bound_eta = -3.0
+  
     # Geometry of the problem
     #AreaEllyt = 0.000201 * 0.6      # m^2   (geometrical area)*(1 - porosity)
     
@@ -95,7 +98,7 @@ function run_new(;physical_model_name,
         println("\nERROR: ysz_experiments.jl: data_set NOT RECOGNIZED !!!! \n")
         return throw(Exception)
       end
-    end             
+    end
                 
                 
                 
@@ -966,6 +969,9 @@ function run_new(;physical_model_name,
     
     # code for performing CV    
     if voltammetry
+        
+        ALL_df_out = DataFrame(t = [], eta = [], U = [], I = [])
+        
         upp_bound_phi = upp_bound_eta/ZETA_fac
         low_bound_phi = low_bound_eta/ZETA_fac
     
@@ -1036,7 +1042,7 @@ function run_new(;physical_model_name,
               
         if true
           # calculating directly steadystate ###############                  
-          set_eta(0.0 - parameters.phi_eq)
+          set_eta(0.0)
           solve!(U0,inival,sys, control=control)
           if save_files || out_df_bool
             push!(out_df, (0, 0, 0, 0, 0, 0, 0))
@@ -1123,11 +1129,19 @@ function run_new(;physical_model_name,
                 state = "cv_is_off"
             end
             
+            @show phi
+            #phi = 0.01
             # tstep to potential phi
             set_eta(phi - parameters.phi_eq)
                         
             control.Δt = tstep
-
+            
+            #@show U, U0, sys
+            
+            #plot_solution(U0, X, marker="o")
+            #plot_solution(U0, X, 1.0, "", X[end], marker="o")
+            #plot_solution(U, X, marker="x")
+                        
             evolve!(U, U0, sys, [0, tstep], control=control)
             
 #     #############
@@ -1136,6 +1150,32 @@ function run_new(;physical_model_name,
 #     @show U[iphi,1]
 #     @show U[iphiLSM,1]    
 #     #############
+        
+            
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
             
             # Transient part of measurement functional
@@ -1167,7 +1207,24 @@ function run_new(;physical_model_name,
                       )
             end
             
+            
+            
             # storing data
+#             ALL_df_out = DataFrame(
+#               t = [],   
+#               eta = [], 
+#               U = [],
+#               I = []
+#             )
+            push!(ALL_df_out, 
+              (
+                istep*tstep, 
+                phi - parameters.phi_eq,
+                deepcopy(U),
+                (Ib, Is, Ibb, Ir)
+              )
+            )
+            
             append!(y0_range,U[iy,1])
             
             surface_species_to_append = []
@@ -1299,7 +1356,10 @@ function run_new(;physical_model_name,
             end
         end
         
-        
+        @show ALL_df_out
+        println("1")
+        return ALL_df_out
+        println("2")
         
         # the finall plot
         if pyplot || pyplot_finall

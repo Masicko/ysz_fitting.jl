@@ -86,9 +86,9 @@ using Printf
 using PyPlot
 #using Plots
 using DataFrames
-using LeastSquaresOptim
+#using LeastSquaresOptim
 #using Optim
-using BlackBoxOptim
+#using BlackBoxOptim
 using LinearAlgebra
 
 import Base.string
@@ -109,9 +109,9 @@ include("../src/simulations/CV_simulation.jl")
 include("../src/simulations/EIS_simulation.jl")
 include("../src/simulations/CAP_simulation.jl")
 
-include("../src/EIS_preprocessing_tool.jl")
+#include("../src/EIS_preprocessing_tool.jl")
 
-include("../src/par_study.jl")
+#include("../src/par_study.jl")
 #include("../src/interpolation_fitting.jl")
 include("../src/EEC_module.jl")
 

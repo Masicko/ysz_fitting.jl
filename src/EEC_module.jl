@@ -794,7 +794,9 @@ end
         
 
 
-function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
+function run_EEC_fitting(;
+                        # dataset
+                        TC=800, pO2=80, bias=0.0, data_set="MONO_110",
                         EIS_input=Nothing,
                         f_interval=Nothing, succes_fit_threshold = 0.002, error_type="normalized",
                         fixed_prms_names=[], fixed_prms_values=[],
@@ -884,7 +886,7 @@ function run_EEC_fitting(;TC=800, pO2=80, bias=0.0, data_set="MONO_110",
       end
       
       if length(fixed_prms_names) + sum(output) != length(EEC.prms_names)
-        println("ERROR: some of fixed_prms_names $(fixed_prms_names) not found!")
+        println("ERROR: some of fixed_prms_names $(fixed_prms_names) not found in $(EEC.prms_names)!")
         return throw(Exception)
       end
       #@show output
@@ -1211,7 +1213,9 @@ function load_EEC_data_holder(;folder="../data/EEC/", file_name="default.txt")
       token = data_df[overall_counter, Symbol(prm_name)]            
       if ((token == "Missing") || (token == "missing"))
         token = Missing        
-      else
+      elseif typeof(token) <: Number
+      
+      else        
         token = parse(Float32, token)
       end
       EEC_data_holder.data[TC_idx, pO2_idx, bias_idx, data_set_idx, prm_name_idx] = token
@@ -1344,7 +1348,7 @@ function plot_EEC_data_general(EEC_data_holder;
                
     y_to_plot = get_plot_list_from_template(plot_template, EEC_data_holder, TC_idx, pO2_idx, bias_idx, data_set_idx)
         
-    valid_idxs = map( x -> typeof(x) != Missing, y_to_plot)    
+    valid_idxs = map( x -> typeof(x) != Missing, y_to_plot)
     plot(    
       reversed_x ? reverse(x_to_plot[valid_idxs]) : x_to_plot[valid_idxs] , 
       y_to_plot[valid_idxs] ,
@@ -1438,6 +1442,7 @@ function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set,
                             use_DRT=false, DRT_draw_semicircles=false, plot_legend=false,                             
                             error_type="normalized",
                             EEC_structure="R-L-RCPE-RCPE",
+                            save_EIS_to_files="",
                             EIS_preprocessing_control = EIS_preprocessing_control()
                   )
 
@@ -1477,6 +1482,13 @@ function display_fit_vs_exp(EEC_data_holder;TC, pO2, bias, data_set,
     @show prms_values
     println("fitnessFunction = $(fitnessFunction(EIS_simulation(), EIS_EEC, EIS_exp, error_type=error_type))")
     
+    
+    if save_EIS_to_files != ""
+      default_dir = "../data/FIT_vs_EXP/"
+      mkpath(default_dir)
+      save_file_prms(SIM, EIS_exp, default_dir, [], [], []; mode="exp")
+      save_file_prms(SIM, EIS_EEC, default_dir, [], [], []; mode="sim")
+    end
   end  
 end
   
