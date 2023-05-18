@@ -10,10 +10,16 @@ includet("../src/ysz_fitting.jl")
 ysz_fitting.CV_view_experimental_data([800, 850], [20, 40])
 
 # EIS ... 
-ysz_fitting.EIS_view_experimental_data(TC=700, pO2=[0], bias=collect(-1 : 0.1 : -0.8), 
-                   use_checknodes=false, data_set=["MONO_NEW"], plot_legend=true,
-                   save_to_folder=Nothing
+ysz_fitting.EIS_view_experimental_data(TC=700, pO2=[0], bias=collect(-1 : 0.1 : -1), 
+                   data_set=["default_EIS_example.z"], 
+                   plot_option="Nyq Bode Rtau RC", plot_legend=true,
+                   backward_check=true,
+                   DRT_control=DRT_control_struct(
+                    lambda = 0.1,
+                    tau_min_fac = 1.0e3, tau_max_fac = 1.0e-0, tau_range_fac = 10,
+                    #specified_f_range = [1, 10, 100, 1000, 10000]
                    )
+            )
 
 # Notes:                   
 #   save_to_folder = Nothing ------> Nothing happens

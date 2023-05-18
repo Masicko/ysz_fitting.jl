@@ -304,7 +304,7 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation([700, 75
                    "O.r_B", "O.r_C",        "O.DG_B", "O.DG_C",
                    "nu_B", "nu_C",     "CO_B", "CO_C",     "COmm_B", "COmm_C"],
                  
-               prms_values=(0, 0.295, 0.0, 0.0, 0.0, 0.222, 21.836, 0.011, 0.138, 0.207, 24.047, -0.002, -0.075, 0.222, 21.74, 0.119, -0.05, -0.106, 0.703, 0.009, 28.533, 0.005, 1.853])               
+               prms_values=(0, 0.295, 0.0, 0.0, 0.0, 0.222, 21.836, 0.011, 0.138, 0.207, 24.047, -0.002, -0.075, 0.222, 21.74, 0.119, -0.05, -0.106, 0.703, 0.009, 28.533, 0.005, 1.853)               
                ,use_experiment=true);   
 
                
@@ -1228,7 +1228,7 @@ new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, [40
   ######    #  #####  # NO E_FAC !!!! pO2 = 40, 60
                       new_GAS_LoMA_shared = ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, [20, 40, 60], 0.0, data_set="OLD_MONO_100", plot_legend=false), pyplot=1,  
                                 prms_names=["separate_vacancy", "A.exp", "R.exp", "O.exp", "A.r", "R.r", "O.r", "A.DG", "R.DG", "O.DG", "conductivity", "nu", "OC", "ms_par", "e_fac"],
-                                 prms_values=(1, 0.0, 0.0, 0.0, 25.2697, 22.6163, 21.8379, -0.17644, 0.213803, -0.209637, 5.85, 0.895986, 3.26162, 5.97785, 0.0))
+                                 prms_values=(1, 0.0, 0.0, 0.0, 25.2697, 22.6163, 21.8379, -0.17644, 0.213803, -0.209637, 5.85, 0.895986, 3.26162, 5.97785, 0.0)
                                 ,use_experiment=true);                                
                               
                               

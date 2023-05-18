@@ -50,7 +50,7 @@ mutable struct reaction_struct
   
 end
 
-mutable struct YSZParameters <: VoronoiFVM.AbstractData
+mutable struct YSZParameters 
 
     # switches
     separate_vacancy::Bool
@@ -426,13 +426,6 @@ function YSZParameters_update!(this::YSZParameters)
     end
     
     return this
-end
-
-function printfields(this)
-    for name in fieldnames(typeof(this))  
-        @printf("%8s = ",name)
-        println(getfield(this,name))
-    end
 end
 
 function set_parameters!(this::YSZParameters, prms_values, prms_names)

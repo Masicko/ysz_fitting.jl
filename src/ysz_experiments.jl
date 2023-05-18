@@ -351,6 +351,7 @@ function run_new(;physical_model_name,
         
         control.damp_growth=damp_growth_in_round[round]        
         actual_ramp_step = ( (phiS - phiS0) > 1e-8 ?  (phiS - phiS0) : 1.0 )
+        @show phi_ramp_solved  actual_ramp_step ramp_nodes phiS
         for phi_ramp in (ramp_nodes == 0 ? phiS : collect(phi_ramp_solved : actual_ramp_step/ramp_nodes : phiS))
             try              
               if verbose
@@ -514,11 +515,11 @@ function run_new(;physical_model_name,
     #
     control=VoronoiFVM.NewtonControl()
     control.verbose=false
-    control.tol_linear=1.0e-5
-    control.tol_relative=1.0e-8
+    control.reltol_linear=1.0e-5
+    control.reltol=1.0e-8
     #control.tol_absolute=1.0e-4
-    control.max_iterations=300
-    control.max_lureuse=0
+    control.maxiters=300
+    #control.max_lureuse=0
     control.damp_initial=1.0e-3
     control.damp_growth=2.0
     

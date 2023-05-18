@@ -92,7 +92,7 @@ ysz_fitting.simple_run(TC=850, pO2=[80], simulations=["EIS"], pyplot=1,
 # example 8 - DRT LoMA - two - circles .... near exp data
 ysz_fitting.simple_run(ysz_fitting.EIS_simulation(850, 80, 0.0, plot_option="Nyq RC"), pyplot=1,  
               prms_names=["A0", "R0", "K0", "DGA", "DGR", "DGO",      "DD", "nu"     ], 
-              prms_values=[  23.6, 20.8, 20.2,            0.5, -0.4, 0.15,     [90]*1.0e-14, [0.85]     ], 
+              prms_values=[  23.6, 20.8, 20.2,            0.5, -0.4, 0.15, [90]*1.0e-14, [0.85]     ], 
               use_experiment=true);
               
 # "OC" influence 

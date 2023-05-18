@@ -22,7 +22,7 @@ const bulk_species = (iphi, iy) = (1, 2)
 const surface_species = (ib, iyos) = (3, 4)
 const surface_names = ("yAs", "yOs")
 
-mutable struct YSZParameters <: VoronoiFVM.AbstractData
+mutable struct YSZParameters 
 
     # adsorption from YSZ
     A0::Float64   # surface adsorption coefficient [ m^-2 s^-1 ]
@@ -145,12 +145,7 @@ function YSZParameters_update!(this::YSZParameters)
     return this
 end
 
-function printfields(this)
-    for name in fieldnames(typeof(this))
-        @printf("%8s = ",name)
-        println(getfield(this,name))
-    end
-end
+
 
 function set_parameters!(this::YSZParameters, prms_values, prms_names)
   found = false

@@ -11,28 +11,17 @@ using LinearAlgebra
 #include("../src/simulations/EIS_simulation.jl")
 
 using Random
+using Base: @kwdef
 
 const DRT_standard_figure = 33
 
-mutable struct DRT_control_struct
-  lambda::Float32
-  tau_min_fac::Float32
-  tau_max_fac::Float32
-  tau_range_fac::Float32
-  peak_merge_tol::Float32
-  specified_f_range
-end
-
-function DRT_control_struct()
-  return DRT_control_struct(0.0, 1, 1, 2,0, Nothing)
-end
-
-function DRT_control_sturct(a, b, c, d; specified_f_range=Nothing)
-  return DRT_control_struct(a, b, c, d, specified_f_range)
-end
-
-function DRT_control_struct(specified_f_range)  
-  return DRT_control_struct(0.0, 1, 1, 2,0, specified_f_range)
+@kwdef mutable struct DRT_control_struct
+  lambda::Float32=0.0
+  tau_min_fac::Float32=1.0
+  tau_max_fac::Float32=1.0
+  tau_range_fac::Float32=1.0
+  peak_merge_tol::Float32=0.0
+  specified_f_range = Nothing
 end
 
 mutable struct DRT_struct
@@ -413,7 +402,7 @@ function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=fals
           DRT_out.peaks_df.tau_c[i-1] = 10^((log10(DRT_out.peaks_df.tau_c[i-1] * DRT_out.peaks_df.tau_c[i]))/2)
           DRT_out.peaks_df.R[i-1] += DRT_out.peaks_df.R[i]
           DRT_out.peaks_df.C[i-1] = DRT_out.peaks_df.tau_c[i-1]/DRT_out.peaks_df.R[i-1]
-          deleterows!(DRT_out.peaks_df, i)
+          delete!(DRT_out.peaks_df, i)
           #
           
           new_loop = true

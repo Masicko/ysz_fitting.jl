@@ -330,7 +330,11 @@ end
 
 
 
-function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_option="Nyq Bode Rtau RC", use_checknodes=false, plot_legend=true, fig_num=12, DRT_control=DRT_control_struct(), use_DRT=true, save_to_folder=Nothing, graph_3D=false,                            
+function EIS_view_experimental_data(;TC=1, pO2=1, bias=1, data_set="MONO_110", 
+                  plot_option="Nyq Bode Rtau RC", plot_legend=true, fig_num=12,
+                  backward_check=true,
+                  DRT_control=DRT_control_struct(), use_DRT=true,
+                  use_checknodes=false, save_to_folder=Nothing,
                   EIS_preprocessing_control = EIS_preprocessing_control(
                                   f_interval=Nothing, 
                                   add_inductance=0,
@@ -384,8 +388,11 @@ function EIS_view_experimental_data(;TC, pO2, bias, data_set="MONO_110", plot_op
           
           # NEW branch                
           EIS_exp_NEW = EIS_preprocessing(EIS_exp, EIS_preprocessing_control)
-          #  
-          loc_SIM = EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, use_DRT=use_DRT, DRT_backward_check=true, plot_option=plot_option, plot_legend=plot_legend)[1]
+          #
+          loc_SIM = EIS_simulation(TC_item, pO2_item, bias_item, fig_num=fig_num, data_set=data_set_item, 
+                                use_DRT=use_DRT, DRT_control=DRT_control, DRT_backward_check=backward_check,
+                                plot_option=plot_option, plot_legend=plot_legend                        
+                              )[1]
           if postprocessing_bool
             push!(x_ranges_storage, deepcopy(real(EIS_exp_NEW[!, :Z]) ))
             push!(y_ranges_storage, deepcopy((-1).*imag(EIS_exp_NEW[!, :Z]) ))
