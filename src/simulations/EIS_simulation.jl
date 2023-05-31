@@ -99,6 +99,18 @@ end
 #######################################
 # potentially changable stuff #########
 
+function create_custom_import_file()
+  cp((@__DIR__) * "/../template_import_experimental_data.jl", "custom_import_experimental_data.jl")
+end
+
+if "custom_import_experimental_data.jl" in readdir(".")
+  actual_path = pwd()
+  include("$(actual_path)/custom_import_experimental_data.jl")
+else
+  import_EIStoDataFrame = default_import_EIStoDataFrame
+end
+
+
 function EIS_get_shared_f_range()
     # experimental range is 0.1 - 65000 Hz
     # fs = (w0, w1, w_fac)
