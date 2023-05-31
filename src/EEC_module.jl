@@ -6,8 +6,6 @@ using DataFrames
 using Optim
 using CSV
 
-using NNLS
-#using LinearAlgebra
 using LsqFit
 using ProgressMeter
 

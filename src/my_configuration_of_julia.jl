@@ -8,7 +8,6 @@ Pkg.add("ForwardDiff")
 # add the following to >>  .julia/config/startup.jl
 ################################################################
 #
-# push!(LOAD_PATH, " . . . path to the NNLS package . . . ")
 # try
 #         @eval using Revise
 #         # Turn on Revise s automatic evaluation behaviour
@@ -32,11 +31,6 @@ Pkg.add("LaTeXStrings")
 Pkg.add("ExtendableGrids")
 Pkg.add("GridVisualize")
 Pkg.add("DataFramesMeta")
-
-# for NNLS
-Pkg.add("MathProgBase")
-# integration
-Pkg.add("QuadGK")
 
 # NEW
 Pkg.add("BlackBoxOptim")

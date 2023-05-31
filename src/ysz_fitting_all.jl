@@ -90,6 +90,7 @@ using DataFrames
 #using Optim
 #using BlackBoxOptim
 using LinearAlgebra
+using NonNegLeastSquares
 
 import Base.string
 
@@ -297,6 +298,7 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_nu
     SIM.DRT_backward_check=backward_check
     SIM.plot_option=plot_option
     SIM.f_range=f_range
+    SIM.fig_num = fig_num
     #@show SIM
     
     if mode=="EEC"

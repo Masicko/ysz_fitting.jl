@@ -4,7 +4,6 @@ using PyPlot
 using DataFrames
 #using LeastSquaresOptim
 
-using NNLS
 using LinearAlgebra
 
 
@@ -322,16 +321,14 @@ end
 function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=false)
   #println(control.lambda)
   #@show tau_max_fac
-  tau_min = 1.0/(2*pi*EIS_df.f[end]) / control.tau_min_fac
-  tau_max = 1.0/(2*pi*EIS_df.f[1]) * control.tau_max_fac
+  tau_min = 1.0/(2*pi*maximum(EIS_df.f)) / control.tau_min_fac
+  tau_max = 1.0/(2*pi*minimum(EIS_df.f)) * control.tau_max_fac
   tau_range = get_expspace(tau_min, tau_max, control.tau_range_fac*size(EIS_df.f, 1)-2)
   #tau_range = [0.001]
   
   (A, b, N_f, N_tau) = construct_A_matrix_and_b(EIS_df.f, tau_range, EIS_df.Z, control.lambda)
   
-  work_l = NNLSWorkspace(A, b);
-  
-  solution = solve!(work_l)
+  solution= nonneg_lsq(A, b; alg=:nnls)
   #max_iter = 1000
   #solution = solve!(work_l, max_iter)
   
@@ -344,8 +341,7 @@ function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=fals
     A = [A; transpose(next_row)]
     b = [b; R_ohm_estimate]
     
-    work_l = NNLSWorkspace(A, b);
-    solution = solve!(work_l)     
+    solution= nonneg_lsq(A, b; alg=:nnls)   
   end
   
 #   @show solution
@@ -419,98 +415,6 @@ function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=fals
 end
 
 
-# function get_A_b()
-#   m = rand(20:100)
-#   n = rand(20:100)
-#   A = randn(m, n)
-#   b = randn(m)
-#   (A, b)
-# end
-# 
-# function get_sup(A, b, lambda)
-#   n = size(b, 1)
-#   nuly = [1 for i in 1:n]
-#   lambdaI = diagm(n, n, [lambda for i in 1:n])
-#   A_sup = vcat(A, lambdaI)
-#   b_sup = vcat(b, nuly)
-#   (A_sup, b_sup)
-# end
-# 
-# function test_lambda()
-#   for i in collect(-6 : 1 : 5) 
-#     work_l = NNLSWorkspace(get_sup(A, b, 10.0^i)...); plot(solve!(work_l), label="$i")
-#     legend()
-#   end
-# end
-
-
-# function assemble_A(f_list, tau_range)
-#   N_f = size(f_list, 1)
-#   N_tau = size(tau_range, 1)
-#   
-#   # taus, R_ohm, L
-#   n_cols = N_tau + 2
-#   
-#   # real(Z), imag(Z), regularization
-#   n_rows = 2*N_f + n_cols
-#   
-#   A = Matrix{Float64}(undef, n_rows, n_cols)
-# 
-#   for (i, f) in enumerate(f_list)
-#     #RC
-#     for (j, tau) in enumerate(tau_range)
-#       A[i, j]       = real(1/(1 + im*(2*pi*f)*tau))
-#       A[N_f + i, j] = imag(1/(1 + im*(2*pi*f)*tau))
-#     end
-#     # R_ohm
-#     A[i, N_tau + 1] = 1
-#     A[N_f + i, N_tau + 1] = 0
-#     # L
-#     A[i, N_tau + 2] = 0
-#     A[N_f + i, N_tau + 2] = 2*pi*f
-#   end
-# 
-#   # assemble "regularization" part of A
-#   A[2*N_f + 1 : end, :] .= diagm(n_cols, n_cols, [lambda for i in 1:n_cols])
-#   
-#   return A
-# end
-# 
-# function assemble_b(f_list, Z_list)
-#   N_f = size(f_list, 1)
-#   N_tau = size(tau_range, 1)
-#   
-#   # taus, R_ohm, L
-#   n_cols = N_tau + 2
-#   
-#   # real(Z), imag(Z), regularization
-#   n_rows = 2*N_f + n_cols
-#   
-#   b = Vector{Float64}(undef, n_rows)
-#   
-#   for (i, f) in enumerate(EIS_df.f)
-#     #RC
-#     for (j, tau) in enumerate(tau_range)
-#       A[i, j]       = real(1/(1 + im*(2*pi*f)*tau))
-#       A[N_f + i, j] = imag(1/(1 + im*(2*pi*f)*tau))
-#     end
-#     # R_ohm
-#     A[i, N_tau + 1] = 1
-#     A[N_f + i, N_tau + 1] = 0
-#     # L
-#     A[i, N_tau + 2] = 0
-#     A[N_f + i, N_tau + 2] = 2*pi*f
-#     
-#     # b
-#     b[i] = real(EIS_df.Z[i])
-#     b[N_f + i] = real(EIS_df.Z[i])
-#   end
-#   
-#   # assemble "regularization" part of b
-#   b[2*N_f + 1 : end] .= 0
-#   
-#   return b
-# end
 
 function EIS_get_RC_CPE_elements(R1, C1, R2, C2, alpha, Rohm=0; f_range=Nothing)
   EIS_RC = DataFrame( f = [], Z = [])
