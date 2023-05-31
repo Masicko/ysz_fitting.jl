@@ -1,6 +1,7 @@
 using CSV
 using DataFrames
 using PyPlot
+#using Revise
 
 
 include("../my_GIF_maker.jl")
@@ -101,6 +102,7 @@ end
 
 function create_custom_import_file()
   cp((@__DIR__) * "/../template_import_experimental_data.jl", "custom_import_experimental_data.jl")
+  chmod("custom_import_experimental_data.jl", 0o777)
 end
 
 if "custom_import_experimental_data.jl" in readdir(".")
@@ -109,6 +111,7 @@ if "custom_import_experimental_data.jl" in readdir(".")
 else
   import_EIStoDataFrame = default_import_EIStoDataFrame
 end
+
 
 
 function EIS_get_shared_f_range()
