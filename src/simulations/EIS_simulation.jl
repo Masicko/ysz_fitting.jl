@@ -105,12 +105,11 @@ function create_custom_import_file()
   chmod("custom_import_experimental_data.jl", 0o777)
 end
 
-if "custom_import_experimental_data.jl" in readdir(".")
-  actual_path = pwd()
-  include("$(actual_path)/custom_import_experimental_data.jl")
-else
-  import_EIStoDataFrame = default_import_EIStoDataFrame
+if !("custom_import_experimental_data.jl" in readdir("."))
+  create_custom_import_file()
 end
+actual_path = pwd()
+include("$(actual_path)/custom_import_experimental_data.jl")
 
 
 

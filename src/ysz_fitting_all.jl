@@ -91,6 +91,7 @@ using DataFrames
 #using BlackBoxOptim
 using LinearAlgebra
 using NonNegLeastSquares
+using Revise
 
 import Base.string
 
