@@ -264,11 +264,36 @@ end
 ###########################################################
 
 
+function export_df_add_row!(export_df, DRT_actual, SIM)
+  keys = Symbol.(DRT_actual.tau_range)
+  vals = DRT_actual.h
+
+  push!(export_df,
+        (; TC = SIM.TC,
+          pO2 = SIM.pO2,
+          bias = SIM.bias,
+          data_set = SIM.data_set,
+          #
+          lambda = DRT_actual.control.lambda,
+          tau_min_fac = DRT_actual.control.tau_min_fac,
+          tau_max_fac = DRT_actual.control.tau_max_fac,
+          tau_range_fac = DRT_actual.control.tau_range_fac,
+          #
+          R_ohm = DRT_actual.R_ohm,
+          L = DRT_actual.L,
+          zip(keys, vals)...
+        )
+  )
+  return
+end
+
 
 function test_DRT(SIM_list=Nothing;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=EIS_get_shared_f_range(), data_set="default_EIS_example.z", physical_model_name=Nothing,
 tau_min_fac=10, tau_max_fac=10, tau_range_fac=2,
-peak_merge_tol=0.0, fig_num=EIS_standard_figure_num, plot_bool=true, use_checknodes=false,
-CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_num = 101)
+peak_merge_tol=0.0, fig_num=EIS_standard_figure_num, plot_bool=true, use_checknodes=false, plot_legend=true,
+CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_num = 101,
+export_file="", export_append=true
+)
 
 
   if data_set=="POLY_OCV_test"
@@ -290,6 +315,10 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_nu
     SIM_list = construct_SIM_list(TC=TC, pO2=pO2, bias=bias, data_set=data_set, simulations=["EIS"], 
                                     physical_model_name=physical_model_name)
   end
+
+  if export_file!=""
+    export_df = DataFrame()
+  end
     
   for SIM in SIM_list, lambda_item in lambda
     # to add .... , tau_min_fac=tau_min_fac, tau_max_fac=tau_max_fac, tau_range_fac=tau_range_fac
@@ -300,6 +329,7 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_nu
     SIM.plot_option=plot_option
     SIM.f_range=f_range
     SIM.fig_num = fig_num
+    SIM.plot_legend = plot_legend
     #@show SIM
     
     if mode=="EEC"
@@ -343,6 +373,12 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_nu
       plot_bool && println("Fitness error = ",fitnessFunction(EIS_simulation(), DRT_actual.EIS_df, EIS_df))
       plot_bool && typical_plot_sim(EIS_simulation(800, 80, 0.0, use_DRT=false, DRT_control=DRT_control, plot_option=plot_option)..., DRT_actual.EIS_df, "! DRT_backward_check")
     end
+
+
+    if export_file!=""
+      DRT_actual = get_DRT(EIS_df, DRT_control)
+      export_df_add_row!(export_df, DRT_actual, SIM)
+    end
   end
   
   if CAP_comparison    
@@ -384,6 +420,10 @@ CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_nu
 #       if CAP_plot_analytical
 #         TODO !!!
 #       end
+  end
+
+  if export_file!=""
+    CSV.write(export_file, export_df, delim='\t', append=export_append)
   end
   
   return

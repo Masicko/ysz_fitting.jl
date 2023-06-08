@@ -41,3 +41,9 @@ ysz_fitting.test_DRT(mode="exp", TC=800, pO2=20, bias=collect(0.0 : 0.05 : 0.2),
 #                                                 0.4, -0.5, collect(-0.0 : 0.01 : 0.0),     
 #                                                 [90]*1.0e-14, collect(0.85 : 0.05 : 0.85), true,       1/4, 1/2    ),
 #                                    CAP_comparison=true, plot_bool=false);
+#  
+# export file option:
+#       - export_file = "" is defaul -> means export Nothing
+#                     = "foo.txt" -> will export data from DRT with information as TC, pO2, bias, data_set, lambda atc.
+#       - export_append = "true" is default -> if file with the specified name exists, it add new rows to it
+#                       = "false" -> overrides file if exists
