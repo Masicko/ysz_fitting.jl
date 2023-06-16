@@ -289,10 +289,17 @@ end
 
 
 function test_DRT(SIM_list=Nothing;lambda=0.0, mode="EEC", TC=800, pO2=80, bias=0.0, R_ohm=1, R1=1, C1=0.001, R2=1, C2=0.0001, alpha=1, prms_names=[], prms_values=[], backward_check=true, draw_semicircles=false, plot_option="Nyq DRT Bode RC", f_range=EIS_get_shared_f_range(), data_set="default_EIS_example.z", physical_model_name=Nothing,
-tau_min_fac=10, tau_max_fac=10, tau_range_fac=2,
+tau_min_fac=10, tau_max_fac=10, tau_range_fac=2, k_Gold=-10, alg="Tikhonov",
 peak_merge_tol=0.0, fig_num=EIS_standard_figure_num, plot_bool=true, use_checknodes=false, plot_legend=true,
 CAP_comparison=false, CAP_bottleneck_prm="rR", CAP_plot_CAP_CV=true, CAP_plot_num = 101,
-export_file="", export_append=true
+export_file="", export_append=true, 
+EIS_preprocessing_control = EIS_preprocessing_control(
+                                  f_interval="auto", 
+                                  add_inductance=0,
+                                  trim_inductance=true, 
+                                  outlayers_threshold=Inf,                                    
+                                  use_DRT=false, DRT_control=DRT_control_struct()
+                  )
 )
 
 
@@ -322,7 +329,7 @@ export_file="", export_append=true
     
   for SIM in SIM_list, lambda_item in lambda
     # to add .... , tau_min_fac=tau_min_fac, tau_max_fac=tau_max_fac, tau_range_fac=tau_range_fac
-    DRT_control = DRT_control_struct(lambda_item, tau_min_fac, tau_max_fac, tau_range_fac, peak_merge_tol, Nothing)
+    DRT_control = DRT_control_struct(lambda_item, tau_min_fac, tau_max_fac, tau_range_fac, peak_merge_tol, Nothing, k_Gold, alg)
     SIM.DRT_control = DRT_control
     SIM.DRT_draw_semicircles=draw_semicircles
     SIM.DRT_backward_check=backward_check
@@ -334,6 +341,7 @@ export_file="", export_append=true
     
     if mode=="EEC"
       EIS_df = EIS_get_RC_CPE_elements(R1, C1, R2, C2, alpha, R_ohm, f_range=f_range)
+      EIS_df = EIS_preprocessing(EIS_df, EIS_preprocessing_control)
       plot_bool && typical_plot_sim(SIM, EIS_df, "! EEC ($R1, $C1) ($R2, $C2, $alpha)")
     elseif mode=="sim"
       EIS_df = ysz_fitting.simple_run([SIM], pyplot=(plot_bool ? 1 : 0), 
@@ -346,6 +354,7 @@ export_file="", export_append=true
       else
         EIS_df = import_data_to_DataFrame(SIM)
       end
+      EIS_df = EIS_preprocessing(EIS_df, EIS_preprocessing_control)
       if SIM.data_set[end-1:end]==".z"
         plot_bool && typical_plot_exp(SIM, EIS_df, "!$(SIM.data_set)") 
       else

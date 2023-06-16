@@ -5,7 +5,13 @@
 #                       R2, C2, alpha = paralel R + CPE circuit
 #               "exp" - experimetnal data
 #               "sim" - simulation
-# lambda - regularization parameter ... minimization of F = || A*x - b || + || lambda*I*x ||
+#  Algoritms:
+#  - alg = "Tikhonov":
+#      lambda - regularization parameter ... minimization of F = || A*x - b || + || lambda*I*x ||
+#  - alg = "Gold" ... deconvolution https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9400974/pdf/CPHC-23-0.pdf
+#      k_Gold - iteration number (in the role of regularization parameter)
+# 
+#  One can use EIS_preprocessing (viz EIS_preprocessing_usage.jl)
 #
 ##############################################################
 includet("../src/ysz_fitting.jl")

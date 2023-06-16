@@ -21,6 +21,8 @@ const DRT_standard_figure = 33
   tau_range_fac::Float32=1.0
   peak_merge_tol::Float32=0.0
   specified_f_range = Nothing
+  k_Gold::Int64=10000
+  alg::String="Tikhonov"
 end
 
 mutable struct DRT_struct
@@ -264,12 +266,17 @@ function get_expspace(A, B, n)
   res
 end
 
-function construct_A_matrix_and_b(f_nodes, tau_range, Z, lambda)
+function construct_A_matrix_and_b(f_nodes, tau_range, Z, lambda, control)
   N_f = size(f_nodes, 1)
   N_tau = size(tau_range, 1)
   
   # h, R_ohm, L
-  n_cols = N_tau + 2  
+  if control.alg == "Gold"
+    n_cols = N_tau + 1  
+  else
+    n_cols = N_tau + 2  
+  end
+  
   # real(Z), imag(Z), regularization
   if lambda == 0.0
     n_rows = 2*N_f
@@ -282,24 +289,28 @@ function construct_A_matrix_and_b(f_nodes, tau_range, Z, lambda)
   A = Matrix{Float64}(undef, n_rows, n_cols)
   b = Vector{Float64}(undef, n_rows)
   
+  im_fac = -1.0
+
   # assemble A and b
   for (i, f) in enumerate(f_nodes)
     #RC
     for (j, tau) in enumerate(tau_range)
       A[i, j]       = real(1/(1 + im*(2*pi*f)*tau))
-      A[N_f + i, j] = imag(1/(1 + im*(2*pi*f)*tau))
+      A[N_f + i, j] = im_fac*imag(1/(1 + im*(2*pi*f)*tau))
     end
     # R_ohm
     A[i, N_tau + 1] = 1
-    A[N_f + i, N_tau + 1] = 0
+    A[N_f + i, N_tau + 1] = im_fac*0
     # L
-    A[i, N_tau + 2] = 0
-    A[N_f + i, N_tau + 2] = 2*pi*f
+    if control.alg != "Gold"
+      A[i, N_tau + 2] = 0
+      A[N_f + i, N_tau + 2] = im_fac*2*pi*f
+    end
     
     # b
     if Z != Nothing
       b[i] = real(Z[i])
-      b[N_f + i] = imag(Z[i])
+      b[N_f + i] = im_fac*imag(Z[i])
     end
   end
   
@@ -318,6 +329,23 @@ function construct_A_matrix_and_b(f_nodes, tau_range, Z, lambda)
   return (A, b, N_f, N_tau)
 end
 
+
+function Gold_solve(A, b, k)
+  x1 = Vector{Float64}(undef, size(A, 2))
+  x1 .= 1.0
+  #
+  AT = transpose(A)
+  Z_part = AT*b
+  #
+  i = 1
+  while i <= k
+    denominator = (AT*A*x1)
+    x1 .= x1 .* Z_part./denominator
+    i += 1
+  end
+  return x1
+end
+
 function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=false)
   #println(control.lambda)
   #@show tau_max_fac
@@ -326,13 +354,19 @@ function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=fals
   tau_range = get_expspace(tau_min, tau_max, control.tau_range_fac*size(EIS_df.f, 1)-2)
   #tau_range = [0.001]
   
-  (A, b, N_f, N_tau) = construct_A_matrix_and_b(EIS_df.f, tau_range, EIS_df.Z, control.lambda)
+  (A, b, N_f, N_tau) = construct_A_matrix_and_b(EIS_df.f, tau_range, EIS_df.Z, control.lambda, control)
   
-  solution= nonneg_lsq(A, b; alg=:nnls)
-  #max_iter = 1000
-  #solution = solve!(work_l, max_iter)
-  
-  if solution[1] > 0.000001
+ # @show A b
+  if control.alg == "Tikhonov"
+    solution= nonneg_lsq(A, b; alg=:nnls)
+  elseif control.alg == "Gold"
+    solution = Gold_solve(A, b, control.k_Gold)
+  else
+    println("ERROR: DRT >>> wrong algoritm chosen: $(control.alg)")
+    throw(Exception)
+  end
+
+  if control.alg == "Tikhonov" && solution[1] > 0.000001
     println(" !!!!!!!!!!!!!!!!!!!!!!!  Low frequency adjustment ---------------------- ")
     R_ohm_estimate = solution[N_tau + 1] + solution[1]
   
@@ -352,35 +386,41 @@ function get_DRT(EIS_df::DataFrame, control::DRT_control_struct, debug_mode=fals
   
   # reconstructin EIS from DRT
   # getting rid of the corner effects
-  if control.lambda == 0.0 && false
-    solution[end-7 : end-2] .= 0
-    solution[1 : 3] .=0
-  end
+  # if control.lambda == 0.0 && false
+  #   solution[end-7 : end-2] .= 0
+  #   solution[1 : 3] .=0
+  # end
   
   if control.specified_f_range != Nothing  
     f_nodes = EIS_get_checknodes_geometrical(control.specified_f_range...)
         
     # assemble new A w.r.t. specified_f_range
-    (A, b, N_f, N_tau) = construct_A_matrix_and_b(f_nodes, tau_range, Nothing, 0.0)
+    (A, b, N_f, N_tau) = construct_A_matrix_and_b(f_nodes, tau_range, Nothing, 0.0, control)
   
     EIS_post = A*solution
     
     Z_specified = Array{Complex}(undef, N_f)
     for i in 1:N_f
-      Z_specified[i] = Complex(EIS_post[i], EIS_post[N_f + i])
+      Z_specified[i] = Complex(EIS_post[i], -EIS_post[N_f + i])
     end
     
     EIS_new = DataFrame(f = f_nodes, Z = Z_specified)
-  else      
+  else
     EIS_post = A*solution
     
     EIS_new = deepcopy(EIS_df)
     for i in 1:N_f
-      EIS_new.Z[i] = EIS_post[i] + im*EIS_post[N_f + i]
+      EIS_new.Z[i] = EIS_post[i] - im*EIS_post[N_f + i]
     end
   end
+
+  if control.alg == "Gold"
+    L_out = NaN
+  else
+    L_out = solution[N_tau+2]
+  end
   
-  DRT_out = DRT_struct(EIS_new, tau_range, solution[1:end - 2], solution[end-1], solution[end], DataFrame(), control)
+  DRT_out = DRT_struct(EIS_new, tau_range, solution[1:N_tau], solution[N_tau+1], L_out, DataFrame(), control)
   evaluate_RC_peaks_from_DRT(DRT_out)
   
   # the following do NOT change DRT function, only changes peaks_df
